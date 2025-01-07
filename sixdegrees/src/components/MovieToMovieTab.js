@@ -2,24 +2,14 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import SearchBar from './SearchBar';
 
-const validRoles = [
-	'Actor',
-	'Director',
-	'Composer',
-	'Cinematographer',
-	'Writer',
-];
-
 function MovieToMovieTab() {
 	const [startMovieId, setStartMovieId] = useState(null);
 	const [endMovieId, setEndMovieId] = useState(null);
-	const [selectedRole, setSelectedRole] = useState(null);
 	const [results, setResults] = useState([]);
 
 	const fetchMovieToMoviePath = async () => {
 		console.log('Start Movie ID:', startMovieId);
 		console.log('End Movie ID:', endMovieId);
-		console.log('Selected Role:', selectedRole);
 
 		if (!startMovieId || !endMovieId) {
 			alert('Please select both movies.');
@@ -28,11 +18,7 @@ function MovieToMovieTab() {
 
 		try {
 			const response = await axios.get('/api/movies/movie-to-movie', {
-				params: {
-					startId: startMovieId,
-					endId: endMovieId,
-					role: selectedRole, // Include the selected role as a parameter
-				},
+				params: { startId: startMovieId, endId: endMovieId },
 			});
 			console.log('Results:', response.data);
 			setResults(response.data);
@@ -59,22 +45,6 @@ function MovieToMovieTab() {
 						setEndMovieId(id);
 					}}
 				/>
-				<select
-					value={selectedRole || ''}
-					onChange={(e) => setSelectedRole(e.target.value)}
-					style={{
-						padding: '0.5rem',
-						borderRadius: '4px',
-						border: '1px solid #ccc',
-					}}
-				>
-					<option value="">All Roles</option>
-					{validRoles.map((role) => (
-						<option key={role} value={role}>
-							{role}
-						</option>
-					))}
-				</select>
 				<button onClick={fetchMovieToMoviePath} style={{ padding: '0.5rem 1rem' }}>
 					Search
 				</button>
@@ -85,6 +55,9 @@ function MovieToMovieTab() {
 						<tr>
 							<th style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
 								Path
+							</th>
+							<th style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
+								Total Popularity
 							</th>
 						</tr>
 					</thead>

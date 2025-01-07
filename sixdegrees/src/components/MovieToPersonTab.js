@@ -2,33 +2,14 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import SearchBar from './SearchBar';
 
-const VALID_ROLES = [
-	'Actor',
-	'Director',
-	'Composer',
-	'Cinematographer',
-	'Writer',
-];
-
 function MovieToPersonTab() {
 	const [movieId, setMovieId] = useState(null);
 	const [personId, setPersonId] = useState(null);
-	const [selectedRoles, setSelectedRoles] = useState(VALID_ROLES);
 	const [results, setResults] = useState([]);
-
-	const toggleRole = (role) => {
-		setSelectedRoles(
-			(prevRoles) =>
-				prevRoles.includes(role)
-					? prevRoles.filter((r) => r !== role) // Remove role if already selected
-					: [...prevRoles, role] // Add role if not already selected
-		);
-	};
 
 	const fetchMovieToPersonPath = async () => {
 		console.log('Movie ID:', movieId);
 		console.log('Person ID:', personId);
-		console.log('Selected Roles:', selectedRoles);
 
 		if (!movieId || !personId) {
 			alert('Please select both a movie and a person.');
@@ -37,7 +18,7 @@ function MovieToPersonTab() {
 
 		try {
 			const response = await axios.get('/api/movies/movie-to-person', {
-				params: { startId: movieId, endId: personId, validRoles: selectedRoles },
+				params: { startId: movieId, personId },
 			});
 			console.log('Results:', response.data);
 			setResults(response.data);
@@ -68,21 +49,6 @@ function MovieToPersonTab() {
 				<button onClick={fetchMovieToPersonPath} style={{ padding: '0.5rem 1rem' }}>
 					Search
 				</button>
-			</div>
-			<div style={{ marginBottom: '1rem' }}>
-				<h4>Filter by Role:</h4>
-				<div style={{ display: 'flex', gap: '0.5rem' }}>
-					{VALID_ROLES.map((role) => (
-						<label key={role} style={{ display: 'flex', alignItems: 'center' }}>
-							<input
-								type="checkbox"
-								checked={selectedRoles.includes(role)}
-								onChange={() => toggleRole(role)}
-							/>
-							{role}
-						</label>
-					))}
-				</div>
 			</div>
 			{results.length > 0 && (
 				<table style={{ width: '100%', borderCollapse: 'collapse' }}>

@@ -43,46 +43,44 @@ router.get('/search', async (req, res) => {
 });
 
 router.get('/movie-to-movie', async (req, res) => {
-	const { startId, endId, role } = req.query;
+	const { startId, endId } = req.query;
+	console.log('startId => ', startId);
+	console.log('endId => ', endId);
 
 	if (!startId || !endId) {
 		return res
 			.status(400)
-			.json({ error: 'Both start and end movie IDs are required.' });
+			.json({ error: 'Both start and end movie IDs are required' });
 	}
+
+	const cypherQuery = `
+        MATCH path = allShortestPaths(
+            (m1:Movie {id: $startId})-[:WORKED_WITH*]-(m2:Movie {id: $endId})
+        )
+        WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
+        WITH path, 
+            nodes(path) AS path_nodes, 
+            relationships(path) AS path_rels,
+            REDUCE(total_popularity = 0, n IN nodes(path) |
+                CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
+            ) AS total_path_popularity
+        RETURN
+            [i IN range(0, size(path_nodes)-1) |
+                CASE 
+                    WHEN i % 2 = 0 THEN path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
+                    ELSE path_nodes[i].name + ' [' + head([r IN path_rels WHERE startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i] AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'  // Person with role
+                END
+            ] AS path_sequence,
+            total_path_popularity
+        ORDER BY total_path_popularity DESC
+        LIMIT 5;
+    `;
 
 	try {
 		const session = driver.session();
-		let cypherQuery = `
-		MATCH path = allShortestPaths(
-		  (m1:Movie {id: $startId})-[:WORKED_WITH*]-(m2:Movie {id: $endId})
-		)
-		WHERE all(rel IN relationships(path) WHERE rel.role IN $validRoles)
-		WITH path, 
-			 nodes(path) AS path_nodes, 
-			 relationships(path) AS path_rels,
-			 REDUCE(total_popularity = 0, n IN nodes(path) |
-				 CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
-			 ) AS total_path_popularity
-		RETURN
-			[i IN range(0, size(path_nodes)-1) |
-				CASE 
-					WHEN i % 2 = 0 THEN path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'
-					ELSE path_nodes[i].name + ' [' + head([r IN path_rels WHERE (startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i]) AND r.role IN $validRoles | r.role]) + ']'
-				END
-			] AS path_sequence,
-			total_path_popularity
-		ORDER BY total_path_popularity DESC
-		LIMIT 5;
-	  `;
-
-		const validRoles = role
-			? [role]
-			: ['Actor', 'Director', 'Composer', 'Cinematographer', 'Writer'];
 		const result = await session.run(cypherQuery, {
-			startId: parseInt(startId),
-			endId: parseInt(endId),
-			validRoles,
+			startId: Number(startId),
+			endId: Number(endId),
 		});
 
 		const paths = result.records.map((record) => ({
@@ -97,39 +95,32 @@ router.get('/movie-to-movie', async (req, res) => {
 	}
 });
 
-// Movie to Person Path with Role Filtering
 router.get('/movie-to-person', async (req, res) => {
-	const { startId, endId, validRoles } = req.query;
+	const { startId, personId } = req.query;
 
-	if (!startId || !endId || !validRoles) {
+	if (!startId || !personId) {
 		return res
 			.status(400)
-			.json({
-				error: 'Start movie ID, end person ID, and valid roles are required',
-			});
+			.json({ error: 'Both movie and person IDs are required' });
 	}
-
-	const parsedRoles = Array.isArray(validRoles) ? validRoles : [validRoles];
 
 	const cypherQuery = `
         MATCH path = allShortestPaths(
-            (m:Movie {id: $startId})-[:WORKED_WITH*]-(p:Person {id: $endId})
+            (m:Movie {id: $startId})-[:WORKED_WITH*]-(p:Person {id: $personId})
         )
-        WHERE all(
-            rel IN relationships(path) 
-            WHERE (endNode(rel) <> p AND rel.role IN $validRoles) OR (endNode(rel) = p)
-        )
+        WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
         WITH path, 
-             nodes(path) AS path_nodes, 
-             relationships(path) AS path_rels,
-             REDUCE(total_popularity = 0, n IN nodes(path) |
-                 CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
-             ) AS total_path_popularity
+            nodes(path) AS path_nodes, 
+            relationships(path) AS path_rels,
+            // Sum popularity of all crew nodes
+            REDUCE(total_popularity = 0, n IN nodes(path) |
+                CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
+            ) AS total_path_popularity
         RETURN
             [i IN range(0, size(path_nodes)-1) |
                 CASE 
-                    WHEN i % 2 = 0 THEN path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'
-                    ELSE path_nodes[i].name + ' [' + head([r IN path_rels WHERE (startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i]) AND r.role IN $validRoles | r.role]) + ']'
+                    WHEN i % 2 = 0 THEN path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
+                    ELSE path_nodes[i].name + ' [' + head([r IN path_rels WHERE startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i] AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'  // Person with role
                 END
             ] AS path_sequence,
             total_path_popularity
@@ -141,8 +132,7 @@ router.get('/movie-to-person', async (req, res) => {
 		const session = driver.session();
 		const result = await session.run(cypherQuery, {
 			startId: parseInt(startId),
-			endId: parseInt(endId),
-			validRoles: parsedRoles,
+			personId: parseInt(personId),
 		});
 
 		const paths = result.records.map((record) => ({
