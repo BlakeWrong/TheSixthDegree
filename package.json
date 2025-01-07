@@ -1,0 +1,18 @@
+{
+	"name": "sixdegrees",
+	"version": "1.0.0",
+	"main": "index.js",
+	"scripts": {
+		"develop": "concurrently \"cd ./backend && npm start\" \"cd ./sixdegrees && npm start\"",
+		"start": "node backend/index.js",
+		"heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm install --prefix sixdegrees && npm install --prefix backend && npm run build --prefix sixdegrees"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"type": "commonjs",
+	"description": "",
+	"dependencies": {
+		"git-filter-repo": "^0.0.30"
+	}
+}
