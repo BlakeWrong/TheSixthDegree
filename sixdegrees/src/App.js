@@ -4,7 +4,7 @@ import TabsContainer from './components/TabsContainer';
 function App() {
 	return (
 		<div style={{ maxWidth: '800px', margin: '0 auto', padding: '1rem' }}>
-			<h1>Six Degrees</h1>
+			<h1>The 6th Degree</h1>
 			<TabsContainer />
 		</div>
 	);
