@@ -13,16 +13,86 @@ router.get('/search', async (req, res) => {
 	const session = driver.session();
 
 	try {
-		const result = await session.run(
-			`
-      MATCH (m:Movie) 
-      WHERE toLower(m.title) CONTAINS toLower($query) 
-      RETURN m 
-      LIMIT 10
-      `,
-			{ query }
+		// Split the query into tokens
+		const tokens = query.match(/\b\w+\b/g); // Matches words and numbers
+		if (!tokens) {
+			return res.json([]); // Return empty array if no tokens are present
+		}
+
+		// Identify potential year token (e.g., "19", "201", "2014")
+		const potentialYear = tokens.find((token) =>
+			/^\b(19|20)\d{0,2}\b$/.test(token)
+		);
+		const yearToken =
+			potentialYear && potentialYear.length === 4 ? potentialYear : null;
+		const partialYearToken =
+			potentialYear && potentialYear.length < 4 ? potentialYear : null;
+		const titleTokens = tokens.filter((token) => token !== potentialYear); // Exclude year token from title
+		const titleQuery = titleTokens.join(' '); // Reconstruct title query
+
+		console.log(
+			`[DEBUG] Searching for: Title="${titleQuery}", YearToken="${
+				yearToken || 'None'
+			}", PartialYear="${partialYearToken || 'None'}"`
 		);
 
+		// Construct Cypher query
+		let cypherQuery = '';
+		const params = {};
+
+		if (titleQuery) {
+			// If title is present
+			cypherQuery = `
+            MATCH (m:Movie)
+            WHERE ${titleTokens
+													.map(
+														(_, i) => `toLower(m.title) CONTAINS toLower($titleToken${i})`
+													)
+													.join(' AND ')}
+            ${yearToken ? 'AND toString(m.year) = $yearToken' : ''}
+            ${
+													partialYearToken
+														? 'AND toString(m.year) STARTS WITH $partialYearToken'
+														: ''
+												}
+            RETURN m
+            LIMIT 10
+            `;
+			titleTokens.forEach((token, i) => {
+				params[`titleToken${i}`] = token;
+			});
+			if (yearToken) {
+				params.yearToken = yearToken;
+			}
+			if (partialYearToken) {
+				params.partialYearToken = partialYearToken;
+			}
+		} else if (yearToken || partialYearToken) {
+			// If only a year or partial year is present
+			cypherQuery = `
+            MATCH (m:Movie)
+            WHERE ${yearToken ? 'toString(m.year) = $yearToken' : ''}
+            ${
+													partialYearToken
+														? 'toString(m.year) STARTS WITH $partialYearToken'
+														: ''
+												}
+            RETURN m
+            LIMIT 10
+            `;
+			if (yearToken) {
+				params.yearToken = yearToken;
+			}
+			if (partialYearToken) {
+				params.partialYearToken = partialYearToken;
+			}
+		} else {
+			return res.json([]); // If neither title nor year is specified, return empty array
+		}
+
+		const result = await session.run(cypherQuery, params);
+
+		// Map results
 		const movies = result.records.map((record) => {
 			const movie = record.get('m').properties;
 			return {
