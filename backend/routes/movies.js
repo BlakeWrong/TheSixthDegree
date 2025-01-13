@@ -44,11 +44,10 @@ router.get('/search', async (req, res) => {
 			// If title is present
 			cypherQuery = `
             MATCH (m:Movie)
-            WHERE ${titleTokens
-													.map(
-														(_, i) => `toLower(m.title) CONTAINS toLower($titleToken${i})`
-													)
-													.join(' AND ')}
+            WHERE (m.usable IS NULL OR m.usable <> false) 
+			AND ${titleTokens
+				.map((_, i) => `toLower(m.title) CONTAINS toLower($titleToken${i})`)
+				.join(' AND ')}
             ${yearToken ? 'AND toString(m.year) = $yearToken' : ''}
             ${
 													partialYearToken
@@ -71,7 +70,8 @@ router.get('/search', async (req, res) => {
 			// If only a year or partial year is present
 			cypherQuery = `
             MATCH (m:Movie)
-            WHERE ${yearToken ? 'toString(m.year) = $yearToken' : ''}
+            WHERE (m.usable IS NULL OR m.usable <> false) 
+			AND ${yearToken ? 'toString(m.year) = $yearToken' : ''}
             ${
 													partialYearToken
 														? 'toString(m.year) STARTS WITH $partialYearToken'
@@ -125,25 +125,29 @@ router.get('/movie-to-movie', async (req, res) => {
 
 	const cypherQuery = `
         MATCH path = allShortestPaths(
-            (m1:Movie {id: $startId})-[:WORKED_WITH*]-(m2:Movie {id: $endId})
-        )
-        WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
-        WITH path, 
-            nodes(path) AS path_nodes, 
-            relationships(path) AS path_rels,
-            REDUCE(total_popularity = 0, n IN nodes(path) |
-                CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
-            ) AS total_path_popularity
-        RETURN
-            [i IN range(0, size(path_nodes)-1) |
-                CASE 
-                    WHEN i % 2 = 0 THEN path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
-                    ELSE path_nodes[i].name + ' [' + head([r IN path_rels WHERE startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i] AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'  // Person with role
-                END
-            ] AS path_sequence,
-            total_path_popularity
-        ORDER BY total_path_popularity DESC
-        LIMIT 5;
+    (m1:Movie {title: 'Interstellar'})-[:WORKED_WITH*]-(m2:Movie {title: 'The Great Escape'})
+		)
+		WHERE 
+			all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"]) AND
+			all(n IN nodes(path) WHERE NOT n:Movie OR (n.usable IS NULL OR n.usable <> false))
+		WITH path, 
+			nodes(path) AS path_nodes, 
+			relationships(path) AS path_rels,
+			REDUCE(total_popularity = 0, n IN nodes(path) |
+				CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
+			) AS total_path_popularity
+		RETURN
+			[i IN range(0, size(path_nodes)-1) |
+				CASE 
+					WHEN i % 2 = 0 THEN path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
+					ELSE path_nodes[i].name + ' [' + head([r IN path_rels WHERE startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i] AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'  // Person with role
+				END
+			] AS path_sequence,
+			total_path_popularity
+		ORDER BY total_path_popularity DESC
+		LIMIT 5;
+
+
     `;
 
 	try {
@@ -176,26 +180,28 @@ router.get('/movie-to-person', async (req, res) => {
 
 	const cypherQuery = `
         MATCH path = allShortestPaths(
-            (m:Movie {id: $startId})-[:WORKED_WITH*]-(p:Person {id: $personId})
-        )
-        WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
-        WITH path, 
-            nodes(path) AS path_nodes, 
-            relationships(path) AS path_rels,
-            // Sum popularity of all crew nodes
-            REDUCE(total_popularity = 0, n IN nodes(path) |
-                CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
-            ) AS total_path_popularity
-        RETURN
-            [i IN range(0, size(path_nodes)-1) |
-                CASE 
-                    WHEN i % 2 = 0 THEN path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
-                    ELSE path_nodes[i].name + ' [' + head([r IN path_rels WHERE startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i] AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'  // Person with role
-                END
-            ] AS path_sequence,
-            total_path_popularity
-        ORDER BY total_path_popularity DESC
-        LIMIT 5;
+    (m:Movie {id: $startId})-[:WORKED_WITH*]-(p:Person {id: $personId})
+		)
+		WHERE 
+			all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"]) AND
+			all(n IN nodes(path) WHERE NOT n:Movie OR (n.usable IS NULL OR n.usable <> false))
+		WITH path, 
+			nodes(path) AS path_nodes, 
+			relationships(path) AS path_rels,
+			REDUCE(total_popularity = 0, n IN nodes(path) |
+				CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
+			) AS total_path_popularity
+		RETURN
+			[i IN range(0, size(path_nodes)-1) |
+				CASE 
+					WHEN i % 2 = 0 THEN path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
+					ELSE path_nodes[i].name + ' [' + head([r IN path_rels WHERE startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i] AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'  // Person with role
+				END
+			] AS path_sequence,
+			total_path_popularity
+		ORDER BY total_path_popularity DESC
+		LIMIT 5;
+
     `;
 
 	try {
@@ -228,25 +234,28 @@ router.get('/person-to-person', async (req, res) => {
 
 	const cypherQuery = `
         MATCH path = allShortestPaths(
-            (p1:Person {id: $startId})-[:WORKED_WITH*]-(p2:Person {id: $endId})
-        )
-        WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
-        WITH path, 
-             nodes(path) AS path_nodes, 
-             relationships(path) AS path_rels,
-             REDUCE(total_popularity = 0, n IN nodes(path) |
-                 CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
-             ) AS total_path_popularity
-        RETURN
-            [i IN range(0, size(path_nodes)-1) |
-                CASE 
-                    WHEN i % 2 = 0 THEN path_nodes[i].name + ' [' + head([r IN path_rels WHERE (startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i]) AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'
-                    ELSE path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
-                END
-            ] AS path_sequence,
-            total_path_popularity
-        ORDER BY total_path_popularity DESC
-        LIMIT 5;
+    (p1:Person {id: $startId})-[:WORKED_WITH*]-(p2:Person {id: $endId})
+		)
+		WHERE 
+			all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"]) AND
+			all(n IN nodes(path) WHERE NOT n:Movie OR (n.usable IS NULL OR n.usable <> false))
+		WITH path, 
+			nodes(path) AS path_nodes, 
+			relationships(path) AS path_rels,
+			REDUCE(total_popularity = 0, n IN nodes(path) |
+				CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
+			) AS total_path_popularity
+		RETURN
+			[i IN range(0, size(path_nodes)-1) |
+				CASE 
+					WHEN i % 2 = 0 THEN path_nodes[i].name + ' [' + head([r IN path_rels WHERE (startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i]) AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'
+					ELSE path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
+				END
+			] AS path_sequence,
+			total_path_popularity
+		ORDER BY total_path_popularity DESC
+		LIMIT 5;
+
     `;
 
 	try {
