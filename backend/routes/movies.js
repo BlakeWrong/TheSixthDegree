@@ -125,7 +125,7 @@ router.get('/movie-to-movie', async (req, res) => {
 
 	const cypherQuery = `
         MATCH path = allShortestPaths(
-    (m1:Movie {title: 'Interstellar'})-[:WORKED_WITH*]-(m2:Movie {title: 'The Great Escape'})
+    (m1:Movie {id: $startId})-[:WORKED_WITH*]-(m2:Movie {id: $endId})
 		)
 		WHERE 
 			all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"]) AND
