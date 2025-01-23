@@ -145,7 +145,7 @@ router.get('/movie-to-movie', async (req, res) => {
 			] AS path_sequence,
 			total_path_popularity
 		ORDER BY total_path_popularity DESC
-		LIMIT 5;
+		LIMIT 15;
 
 
     `;
@@ -200,7 +200,7 @@ router.get('/movie-to-person', async (req, res) => {
 			] AS path_sequence,
 			total_path_popularity
 		ORDER BY total_path_popularity DESC
-		LIMIT 5;
+		LIMIT 15;
 
     `;
 
@@ -254,7 +254,7 @@ router.get('/person-to-person', async (req, res) => {
 			] AS path_sequence,
 			total_path_popularity
 		ORDER BY total_path_popularity DESC
-		LIMIT 5;
+		LIMIT 15;
 
     `;
 
