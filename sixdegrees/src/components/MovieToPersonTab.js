@@ -147,7 +147,7 @@ function MovieToPersonTab() {
 														textAlign: 'center',
 													}}
 												>
-													{node.type === 'Movie' && (
+													{node.type === 'Movie' ? (
 														<img
 															src={
 																node.poster_url
@@ -155,6 +155,21 @@ function MovieToPersonTab() {
 																	: '/noposter.png'
 															}
 															alt={node.title}
+															style={{
+																width: '50px',
+																height: '75px',
+																objectFit: 'cover',
+																borderRadius: '4px',
+															}}
+														/>
+													) : (
+														<img
+															src={
+																node.profile_url
+																	? `https://image.tmdb.org/t/p/w200${node.profile_url}`
+																	: '/comingsoon.png'
+															}
+															alt={node.name}
 															style={{
 																width: '50px',
 																height: '75px',
