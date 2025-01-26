@@ -11,7 +11,6 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 
 		if (value.length > 2) {
 			try {
-				// Use different APIs based on the `type` prop
 				const endpoint =
 					type === 'person' ? '/api/persons/search' : '/api/movies/search';
 
@@ -21,8 +20,8 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 
 				setOptions(
 					response.data.map((item) => ({
-						id: item.id, // Neo4j IDs are integers
-						display: type === 'person' ? item.name : `${item.title} (${item.year})`,
+						id: item.id,
+						name: type === 'person' ? item.name : `${item.title} (${item.year})`,
 					}))
 				);
 			} catch (error) {
@@ -35,10 +34,9 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 	};
 
 	const handleSelect = (option) => {
-		console.log('Selected Option:', option); // Log the selected option
-		setQuery(option.display); // Update the search bar input
-		onSelect(option.id); // Pass the id to the parent
-		setOptions([]); // Clear the options
+		setQuery(option.name); // Update the input field with the name/display
+		onSelect(option.id, option.name); // Pass both the ID and name to the parent component
+		setOptions([]); // Clear the dropdown
 	};
 
 	return (
@@ -83,7 +81,7 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 								borderBottom: '1px solid #eee',
 							}}
 						>
-							{option.display}
+							{option.name}
 						</li>
 					))}
 				</ul>

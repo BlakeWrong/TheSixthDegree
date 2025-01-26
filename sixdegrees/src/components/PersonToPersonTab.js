@@ -5,6 +5,8 @@ import SearchBar from './SearchBar';
 function PersonToPersonTab() {
 	const [startPersonId, setStartPersonId] = useState(null);
 	const [endPersonId, setEndPersonId] = useState(null);
+	const [excludedPersons, setExcludedPersons] = useState([]);
+	const [excludedPersonsDetails, setExcludedPersonsDetails] = useState([]);
 	const [results, setResults] = useState([]);
 
 	const fetchPersonToPersonPath = async () => {
@@ -15,12 +17,30 @@ function PersonToPersonTab() {
 
 		try {
 			const response = await axios.get('/api/movies/person-to-person', {
-				params: { startId: startPersonId, endId: endPersonId },
+				params: {
+					startId: startPersonId,
+					endId: endPersonId,
+					excludedPersons: excludedPersons.join(','), // Send as comma-separated IDs
+				},
 			});
 			setResults(response.data);
 		} catch (error) {
 			console.error('Error fetching person-to-person path:', error);
 		}
+	};
+
+	const addExcludedPerson = (id, name) => {
+		if (id && !excludedPersons.includes(id)) {
+			setExcludedPersons((prev) => [...prev, parseInt(id)]);
+			setExcludedPersonsDetails((prev) => [...prev, { id: parseInt(id), name }]);
+		}
+	};
+
+	const removeExcludedPerson = (id) => {
+		setExcludedPersons((prev) => prev.filter((pid) => pid !== id));
+		setExcludedPersonsDetails((prev) =>
+			prev.filter((person) => person.id !== id)
+		);
 	};
 
 	return (
@@ -30,13 +50,16 @@ function PersonToPersonTab() {
 				<SearchBar
 					placeholder="Start Person"
 					onSelect={(id) => setStartPersonId(id)}
-					endpoint="/api/people/search" // Make sure your SearchBar uses the correct endpoint
 					type="person"
 				/>
 				<SearchBar
 					placeholder="End Person"
 					onSelect={(id) => setEndPersonId(id)}
-					endpoint="/api/people/search"
+					type="person"
+				/>
+				<SearchBar
+					placeholder="Exclude Person"
+					onSelect={(id, name) => addExcludedPerson(id, name)}
 					type="person"
 				/>
 				<button
@@ -46,6 +69,34 @@ function PersonToPersonTab() {
 					Search
 				</button>
 			</div>
+
+			{/* Excluded Persons List */}
+			{excludedPersonsDetails.length > 0 && (
+				<div>
+					<h4>Excluded Persons:</h4>
+					<ul>
+						{excludedPersonsDetails.map((person) => (
+							<li key={person.id} style={{ marginBottom: '0.5rem' }}>
+								{person.name}{' '}
+								<button
+									onClick={() => removeExcludedPerson(person.id)}
+									style={{
+										marginLeft: '1rem',
+										color: 'red',
+										border: 'none',
+										background: 'none',
+										cursor: 'pointer',
+									}}
+								>
+									Remove
+								</button>
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+
+			{/* Results Table */}
 			{results.length > 0 && (
 				<table style={{ width: '100%', borderCollapse: 'collapse' }}>
 					<thead>

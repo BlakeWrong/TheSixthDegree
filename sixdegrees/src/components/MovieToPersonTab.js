@@ -5,12 +5,11 @@ import SearchBar from './SearchBar';
 function MovieToPersonTab() {
 	const [movieId, setMovieId] = useState(null);
 	const [personId, setPersonId] = useState(null);
+	const [excludedPersons, setExcludedPersons] = useState([]);
+	const [excludedPersonsDetails, setExcludedPersonsDetails] = useState([]);
 	const [results, setResults] = useState([]);
 
 	const fetchMovieToPersonPath = async () => {
-		console.log('Movie ID:', movieId);
-		console.log('Person ID:', personId);
-
 		if (!movieId || !personId) {
 			alert('Please select both a movie and a person.');
 			return;
@@ -18,38 +17,79 @@ function MovieToPersonTab() {
 
 		try {
 			const response = await axios.get('/api/movies/movie-to-person', {
-				params: { startId: movieId, personId },
+				params: {
+					startId: movieId,
+					personId,
+					excludedPersons: excludedPersons.join(','), // Send as comma-separated IDs
+				},
 			});
-			console.log('Results:', response.data);
 			setResults(response.data);
 		} catch (error) {
 			console.error('Error fetching movie-to-person path:', error);
 		}
 	};
 
+	const addExcludedPerson = (id, name) => {
+		if (id && !excludedPersons.includes(id)) {
+			setExcludedPersons((prev) => [...prev, parseInt(id)]);
+			setExcludedPersonsDetails((prev) => [...prev, { id: parseInt(id), name }]);
+		}
+	};
+
+	const removeExcludedPerson = (id) => {
+		setExcludedPersons((prev) => prev.filter((pid) => pid !== id));
+		setExcludedPersonsDetails((prev) =>
+			prev.filter((person) => person.id !== id)
+		);
+	};
+
 	return (
 		<div>
 			<h2>Movie to Person</h2>
 			<div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-				<SearchBar
-					placeholder="Movie"
-					onSelect={(id) => {
-						console.log('Movie Selected:', id);
-						setMovieId(id);
-					}}
-				/>
+				<SearchBar placeholder="Movie" onSelect={(id) => setMovieId(id)} />
 				<SearchBar
 					placeholder="Person"
-					onSelect={(id) => {
-						console.log('Person Selected:', id);
-						setPersonId(id);
-					}}
+					onSelect={(id) => setPersonId(id)}
+					type="person"
+				/>
+				<SearchBar
+					placeholder="Exclude Person"
+					onSelect={(id, name) => addExcludedPerson(id, name)}
 					type="person"
 				/>
 				<button onClick={fetchMovieToPersonPath} style={{ padding: '0.5rem 1rem' }}>
 					Search
 				</button>
 			</div>
+
+			{/* Excluded Persons List */}
+			{excludedPersonsDetails.length > 0 && (
+				<div>
+					<h4>Excluded Persons:</h4>
+					<ul>
+						{excludedPersonsDetails.map((person) => (
+							<li key={person.id} style={{ marginBottom: '0.5rem' }}>
+								{person.name}{' '}
+								<button
+									onClick={() => removeExcludedPerson(person.id)}
+									style={{
+										marginLeft: '1rem',
+										color: 'red',
+										border: 'none',
+										background: 'none',
+										cursor: 'pointer',
+									}}
+								>
+									Remove
+								</button>
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+
+			{/* Results Table */}
 			{results.length > 0 && (
 				<table style={{ width: '100%', borderCollapse: 'collapse' }}>
 					<thead>
