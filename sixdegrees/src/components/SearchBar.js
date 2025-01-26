@@ -40,7 +40,7 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 	};
 
 	return (
-		<div style={{ position: 'relative' }}>
+		<div style={{ position: 'relative', marginRight: '1rem' }}>
 			<input
 				type="text"
 				placeholder={placeholder}
