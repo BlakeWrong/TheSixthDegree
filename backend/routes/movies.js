@@ -100,6 +100,8 @@ router.get('/search', async (req, res) => {
 				title: movie.title,
 				year: movie.year,
 				popularity: movie.popularity,
+				poster_url,
+				genres,
 			};
 		});
 
