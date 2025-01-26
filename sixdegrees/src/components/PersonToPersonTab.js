@@ -111,6 +111,7 @@ function PersonToPersonTab() {
 										marginLeft: '0.5rem',
 										color: 'red',
 										cursor: 'pointer',
+										marginBottom: '1rem',
 									}}
 								>
 									Remove
