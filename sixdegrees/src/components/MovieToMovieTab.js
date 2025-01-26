@@ -2,6 +2,30 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import SearchBar from './SearchBar';
 
+// Relationship language map
+const RELATIONSHIP_MAP = {
+	Director: {
+		movieToPerson: 'Directed by',
+		personToMovie: 'Directed',
+	},
+	Actor: {
+		movieToPerson: 'Featured',
+		personToMovie: 'Acted in',
+	},
+	Cinematographer: {
+		movieToPerson: 'Shot by',
+		personToMovie: 'Shot',
+	},
+	Composer: {
+		movieToPerson: 'Composed by',
+		personToMovie: 'Composed',
+	},
+	Writer: {
+		movieToPerson: 'Written by',
+		personToMovie: 'Wrote',
+	},
+};
+
 function MovieToMovieTab() {
 	const [startMovieId, setStartMovieId] = useState(null);
 	const [endMovieId, setEndMovieId] = useState(null);
@@ -22,6 +46,7 @@ function MovieToMovieTab() {
 					excludedPersons: excludedPersons.map((person) => person.id).join(','),
 				},
 			});
+			console.log('responseData => ', response.data);
 			setResults(response.data);
 		} catch (error) {
 			console.error('[ERROR] Failed to fetch movie-to-movie path:', error);
@@ -33,12 +58,18 @@ function MovieToMovieTab() {
 		if (excludedPersons.some((person) => person.id === id)) {
 			return;
 		}
-
 		setExcludedPersons([...excludedPersons, { id, name }]);
 	};
 
 	const handleRemoveExcludedPerson = (id) => {
 		setExcludedPersons(excludedPersons.filter((person) => person.id !== id));
+	};
+
+	const getRelationshipText = (relationship, isMovieToPerson) => {
+		const direction = isMovieToPerson ? 'movieToPerson' : 'personToMovie';
+		return (
+			RELATIONSHIP_MAP[relationship]?.[direction] || relationship || 'Related'
+		);
 	};
 
 	return (
@@ -95,9 +126,6 @@ function MovieToMovieTab() {
 							<th style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
 								Path
 							</th>
-							<th style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
-								Total Popularity
-							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -147,24 +175,35 @@ function MovieToMovieTab() {
 															<br />({node.year || 'Unknown'})
 														</div>
 													) : (
-														// Render person details
 														<div>
 															<strong>{node.name}</strong>
-															<br />
-															{node.popularity && `(Popularity: ${node.popularity})`}
 														</div>
 													)}
 												</div>
-												{/* Add an arrow between nodes */}
+												{/* Add an arrow with role text between nodes */}
 												{nodeIndex < result.path_details.length - 1 && (
-													<span style={{ fontSize: '1.5rem', color: '#888' }}>→</span>
+													<div
+														style={{
+															display: 'flex',
+															flexDirection: 'column',
+															alignItems: 'center',
+															gap: '0.2rem',
+															fontSize: '12px',
+															color: '#555',
+														}}
+													>
+														<span style={{ fontSize: '1.5rem', color: '#888' }}>→</span>
+														<span>
+															{getRelationshipText(
+																result.relationships[nodeIndex]?.role,
+																node.type === 'Movie'
+															)}
+														</span>
+													</div>
 												)}
 											</React.Fragment>
 										))}
 									</div>
-								</td>
-								<td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
-									{result.total_path_popularity || 'N/A'}
 								</td>
 							</tr>
 						))}

@@ -224,27 +224,39 @@ router.get('/movie-to-person', async (req, res) => {
         WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
         ${personExclusionCondition}
         WITH path,
-            [node IN nodes(path) |
-                CASE
-                    WHEN node:Movie THEN {
-                        type: "Movie",
-                        id: node.id,
-                        title: node.title,
-                        year: node.year,
-                        poster_url: node.poster_url
-                    }
-                    WHEN node:Person THEN {
-                        type: "Person",
-                        id: node.id,
-                        name: node.name,
-                        popularity: node.popularity
-                    }
-                END
-            ] AS path_details,
+            nodes(path) AS path_nodes,
+            relationships(path) AS path_rels,
             REDUCE(total_popularity = 0, n IN nodes(path) |
                 CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
             ) AS total_path_popularity
-        RETURN path_details, total_path_popularity
+        RETURN
+            [
+                n IN path_nodes |
+                CASE 
+                    WHEN "Movie" IN labels(n) THEN {
+                        type: "Movie",
+                        id: n.id,
+                        title: n.title,
+                        year: n.year,
+                        poster_url: n.poster_url
+                    }
+                    WHEN "Person" IN labels(n) THEN {
+                        type: "Person",
+                        id: n.id,
+                        name: n.name,
+                        popularity: n.popularity
+                    }
+                END
+            ] AS path_details,
+            [
+                r IN path_rels |
+                {
+                    start_node_id: startNode(r).id,
+                    end_node_id: endNode(r).id,
+                    role: r.role
+                }
+            ] AS relationships,
+            total_path_popularity
         ORDER BY total_path_popularity DESC
         LIMIT 15;
     `;
@@ -259,6 +271,7 @@ router.get('/movie-to-person', async (req, res) => {
 
 		const paths = result.records.map((record) => ({
 			path_details: record.get('path_details'),
+			relationships: record.get('relationships'),
 			total_path_popularity: record.get('total_path_popularity'),
 		}));
 
@@ -294,27 +307,39 @@ router.get('/person-to-person', async (req, res) => {
         WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
         ${personExclusionCondition}
         WITH path,
-            [node IN nodes(path) |
-                CASE
-                    WHEN node:Movie THEN {
-                        type: "Movie",
-                        id: node.id,
-                        title: node.title,
-                        year: node.year,
-                        poster_url: node.poster_url
-                    }
-                    WHEN node:Person THEN {
-                        type: "Person",
-                        id: node.id,
-                        name: node.name,
-                        popularity: node.popularity
-                    }
-                END
-            ] AS path_details,
+            nodes(path) AS path_nodes,
+            relationships(path) AS path_rels,
             REDUCE(total_popularity = 0, n IN nodes(path) |
                 CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
             ) AS total_path_popularity
-        RETURN path_details, total_path_popularity
+        RETURN
+            [
+                n IN path_nodes |
+                CASE 
+                    WHEN "Movie" IN labels(n) THEN {
+                        type: "Movie",
+                        id: n.id,
+                        title: n.title,
+                        year: n.year,
+                        poster_url: n.poster_url
+                    }
+                    WHEN "Person" IN labels(n) THEN {
+                        type: "Person",
+                        id: n.id,
+                        name: n.name,
+                        popularity: n.popularity
+                    }
+                END
+            ] AS path_details,
+            [
+                r IN path_rels |
+                {
+                    start_node_id: startNode(r).id,
+                    end_node_id: endNode(r).id,
+                    role: r.role
+                }
+            ] AS relationships,
+            total_path_popularity
         ORDER BY total_path_popularity DESC
         LIMIT 15;
     `;
@@ -329,6 +354,7 @@ router.get('/person-to-person', async (req, res) => {
 
 		const paths = result.records.map((record) => ({
 			path_details: record.get('path_details'),
+			relationships: record.get('relationships'),
 			total_path_popularity: record.get('total_path_popularity'),
 		}));
 

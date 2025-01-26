@@ -2,10 +2,34 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import SearchBar from './SearchBar';
 
+// Relationship language map
+const RELATIONSHIP_MAP = {
+	Director: {
+		movieToPerson: 'Directed by',
+		personToMovie: 'Directed',
+	},
+	Actor: {
+		movieToPerson: 'Featured',
+		personToMovie: 'Acted in',
+	},
+	Cinematographer: {
+		movieToPerson: 'Shot by',
+		personToMovie: 'Shot',
+	},
+	Composer: {
+		movieToPerson: 'Composed by',
+		personToMovie: 'Composed',
+	},
+	Writer: {
+		movieToPerson: 'Written by',
+		personToMovie: 'Wrote',
+	},
+};
+
 function PersonToPersonTab() {
 	const [startPersonId, setStartPersonId] = useState(null);
 	const [endPersonId, setEndPersonId] = useState(null);
-	const [excludedPersons, setExcludedPersons] = useState([]); // Stores excluded persons {id, name}
+	const [excludedPersons, setExcludedPersons] = useState([]);
 	const [results, setResults] = useState([]);
 
 	const fetchPersonToPersonPath = async () => {
@@ -22,6 +46,7 @@ function PersonToPersonTab() {
 					excludedPersons: excludedPersons.map((person) => person.id).join(','),
 				},
 			});
+			console.log('responseData => ', response.data);
 			setResults(response.data);
 		} catch (error) {
 			console.error('[ERROR] Failed to fetch person-to-person path:', error);
@@ -37,6 +62,13 @@ function PersonToPersonTab() {
 
 	const handleRemoveExcludedPerson = (id) => {
 		setExcludedPersons(excludedPersons.filter((person) => person.id !== id));
+	};
+
+	const getRelationshipText = (relationship, isMovieToPerson) => {
+		const direction = isMovieToPerson ? 'movieToPerson' : 'personToMovie';
+		return (
+			RELATIONSHIP_MAP[relationship]?.[direction] || relationship || 'Related'
+		);
 	};
 
 	return (
@@ -66,17 +98,20 @@ function PersonToPersonTab() {
 				</button>
 			</div>
 
-			{/* Display Excluded Persons */}
 			{excludedPersons.length > 0 && (
 				<div style={{ marginBottom: '1rem' }}>
 					<h4>Excluded Persons:</h4>
 					<ul>
 						{excludedPersons.map((person) => (
 							<li key={person.id}>
-								{person.name}{' '}
+								{person.name}
 								<button
 									onClick={() => handleRemoveExcludedPerson(person.id)}
-									style={{ marginLeft: '0.5rem', color: 'red', cursor: 'pointer' }}
+									style={{
+										marginLeft: '0.5rem',
+										color: 'red',
+										cursor: 'pointer',
+									}}
 								>
 									Remove
 								</button>
@@ -86,16 +121,12 @@ function PersonToPersonTab() {
 				</div>
 			)}
 
-			{/* Results Table */}
 			{results.length > 0 && (
 				<table style={{ width: '100%', borderCollapse: 'collapse' }}>
 					<thead>
 						<tr>
 							<th style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
 								Path
-							</th>
-							<th style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
-								Total Popularity
 							</th>
 						</tr>
 					</thead>
@@ -147,20 +178,32 @@ function PersonToPersonTab() {
 													) : (
 														<div>
 															<strong>{node.name}</strong>
-															<br />
-															{node.popularity && `(Popularity: ${node.popularity})`}
 														</div>
 													)}
 												</div>
 												{nodeIndex < result.path_details.length - 1 && (
-													<span style={{ fontSize: '1.5rem', color: '#888' }}>→</span>
+													<div
+														style={{
+															display: 'flex',
+															flexDirection: 'column',
+															alignItems: 'center',
+															gap: '0.2rem',
+															fontSize: '12px',
+															color: '#555',
+														}}
+													>
+														<span style={{ fontSize: '1.5rem', color: '#888' }}>→</span>
+														<span>
+															{getRelationshipText(
+																result.relationships[nodeIndex]?.role,
+																node.type === 'Movie'
+															)}
+														</span>
+													</div>
 												)}
 											</React.Fragment>
 										))}
 									</div>
-								</td>
-								<td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
-									{result.total_path_popularity || 'N/A'}
 								</td>
 							</tr>
 						))}
