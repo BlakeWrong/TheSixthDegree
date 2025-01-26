@@ -103,22 +103,67 @@ function MovieToMovieTab() {
 					<tbody>
 						{results.map((result, index) => (
 							<tr key={index}>
-								<td
-									style={{
-										padding: '0.5rem',
-										borderBottom: '1px solid #eee',
-									}}
-								>
-									{Array.isArray(result.path_sequence)
-										? result.path_sequence.join(' -> ')
-										: 'Invalid path format'}
+								{/* Render the full path */}
+								<td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
+									<div
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: '1rem',
+											whiteSpace: 'nowrap',
+											overflowX: 'auto',
+										}}
+									>
+										{result.path_details.map((node, nodeIndex) => (
+											<React.Fragment key={nodeIndex}>
+												<div
+													style={{
+														display: 'flex',
+														flexDirection: 'column',
+														alignItems: 'center',
+														gap: '0.5rem',
+														textAlign: 'center',
+													}}
+												>
+													{node.type === 'Movie' && (
+														<img
+															src={
+																node.poster_url
+																	? `https://image.tmdb.org/t/p/w200${node.poster_url}`
+																	: '/noposter.png'
+															}
+															alt={node.title}
+															style={{
+																width: '50px',
+																height: '75px',
+																objectFit: 'cover',
+																borderRadius: '4px',
+															}}
+														/>
+													)}
+													{node.type === 'Movie' ? (
+														<div>
+															<strong>{node.title}</strong>
+															<br />({node.year || 'Unknown'})
+														</div>
+													) : (
+														// Render person details
+														<div>
+															<strong>{node.name}</strong>
+															<br />
+															{node.popularity && `(Popularity: ${node.popularity})`}
+														</div>
+													)}
+												</div>
+												{/* Add an arrow between nodes */}
+												{nodeIndex < result.path_details.length - 1 && (
+													<span style={{ fontSize: '1.5rem', color: '#888' }}>→</span>
+												)}
+											</React.Fragment>
+										))}
+									</div>
 								</td>
-								<td
-									style={{
-										padding: '0.5rem',
-										borderBottom: '1px solid #eee',
-									}}
-								>
+								<td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
 									{result.total_path_popularity || 'N/A'}
 								</td>
 							</tr>

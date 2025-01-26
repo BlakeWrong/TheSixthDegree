@@ -5,13 +5,12 @@ import SearchBar from './SearchBar';
 function PersonToPersonTab() {
 	const [startPersonId, setStartPersonId] = useState(null);
 	const [endPersonId, setEndPersonId] = useState(null);
-	const [excludedPersons, setExcludedPersons] = useState([]);
-	const [excludedPersonsDetails, setExcludedPersonsDetails] = useState([]);
+	const [excludedPersons, setExcludedPersons] = useState([]); // Stores excluded persons {id, name}
 	const [results, setResults] = useState([]);
 
 	const fetchPersonToPersonPath = async () => {
 		if (!startPersonId || !endPersonId) {
-			alert('Please select both persons.');
+			alert('Please select both start and end persons.');
 			return;
 		}
 
@@ -20,32 +19,29 @@ function PersonToPersonTab() {
 				params: {
 					startId: startPersonId,
 					endId: endPersonId,
-					excludedPersons: excludedPersons.join(','), // Send as comma-separated IDs
+					excludedPersons: excludedPersons.map((person) => person.id).join(','),
 				},
 			});
 			setResults(response.data);
 		} catch (error) {
-			console.error('Error fetching person-to-person path:', error);
+			console.error('[ERROR] Failed to fetch person-to-person path:', error);
 		}
 	};
 
-	const addExcludedPerson = (id, name) => {
-		if (id && !excludedPersons.includes(id)) {
-			setExcludedPersons((prev) => [...prev, parseInt(id)]);
-			setExcludedPersonsDetails((prev) => [...prev, { id: parseInt(id), name }]);
+	const handleExcludePerson = (id, name) => {
+		if (excludedPersons.some((person) => person.id === id)) {
+			return;
 		}
+		setExcludedPersons([...excludedPersons, { id, name }]);
 	};
 
-	const removeExcludedPerson = (id) => {
-		setExcludedPersons((prev) => prev.filter((pid) => pid !== id));
-		setExcludedPersonsDetails((prev) =>
-			prev.filter((person) => person.id !== id)
-		);
+	const handleRemoveExcludedPerson = (id) => {
+		setExcludedPersons(excludedPersons.filter((person) => person.id !== id));
 	};
 
 	return (
 		<div>
-			<h2>Person to Person</h2>
+			<h2>Person to Person Path</h2>
 			<div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
 				<SearchBar
 					placeholder="Start Person"
@@ -59,7 +55,7 @@ function PersonToPersonTab() {
 				/>
 				<SearchBar
 					placeholder="Exclude Person"
-					onSelect={(id, name) => addExcludedPerson(id, name)}
+					onSelect={(id, name) => handleExcludePerson(id, name)}
 					type="person"
 				/>
 				<button
@@ -70,23 +66,17 @@ function PersonToPersonTab() {
 				</button>
 			</div>
 
-			{/* Excluded Persons List */}
-			{excludedPersonsDetails.length > 0 && (
-				<div>
+			{/* Display Excluded Persons */}
+			{excludedPersons.length > 0 && (
+				<div style={{ marginBottom: '1rem' }}>
 					<h4>Excluded Persons:</h4>
 					<ul>
-						{excludedPersonsDetails.map((person) => (
-							<li key={person.id} style={{ marginBottom: '0.5rem' }}>
+						{excludedPersons.map((person) => (
+							<li key={person.id}>
 								{person.name}{' '}
 								<button
-									onClick={() => removeExcludedPerson(person.id)}
-									style={{
-										marginLeft: '1rem',
-										color: 'red',
-										border: 'none',
-										background: 'none',
-										cursor: 'pointer',
-									}}
+									onClick={() => handleRemoveExcludedPerson(person.id)}
+									style={{ marginLeft: '0.5rem', color: 'red', cursor: 'pointer' }}
 								>
 									Remove
 								</button>
@@ -104,13 +94,73 @@ function PersonToPersonTab() {
 							<th style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
 								Path
 							</th>
+							<th style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
+								Total Popularity
+							</th>
 						</tr>
 					</thead>
 					<tbody>
-						{results.map((path, index) => (
+						{results.map((result, index) => (
 							<tr key={index}>
 								<td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
-									{path.path_sequence.join(' -> ')}
+									<div
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: '1rem',
+											whiteSpace: 'nowrap',
+											overflowX: 'auto',
+										}}
+									>
+										{result.path_details.map((node, nodeIndex) => (
+											<React.Fragment key={nodeIndex}>
+												<div
+													style={{
+														display: 'flex',
+														flexDirection: 'column',
+														alignItems: 'center',
+														gap: '0.5rem',
+														textAlign: 'center',
+													}}
+												>
+													{node.type === 'Movie' && (
+														<img
+															src={
+																node.poster_url
+																	? `https://image.tmdb.org/t/p/w200${node.poster_url}`
+																	: '/noposter.png'
+															}
+															alt={node.title}
+															style={{
+																width: '50px',
+																height: '75px',
+																objectFit: 'cover',
+																borderRadius: '4px',
+															}}
+														/>
+													)}
+													{node.type === 'Movie' ? (
+														<div>
+															<strong>{node.title}</strong>
+															<br />({node.year || 'Unknown'})
+														</div>
+													) : (
+														<div>
+															<strong>{node.name}</strong>
+															<br />
+															{node.popularity && `(Popularity: ${node.popularity})`}
+														</div>
+													)}
+												</div>
+												{nodeIndex < result.path_details.length - 1 && (
+													<span style={{ fontSize: '1.5rem', color: '#888' }}>→</span>
+												)}
+											</React.Fragment>
+										))}
+									</div>
+								</td>
+								<td style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>
+									{result.total_path_popularity || 'N/A'}
 								</td>
 							</tr>
 						))}

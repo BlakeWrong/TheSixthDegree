@@ -122,20 +122,15 @@ router.get('/movie-to-movie', async (req, res) => {
 			.status(400)
 			.json({ error: 'Both start and end movie IDs are required' });
 	}
-	console.log('excludedPersons => ', excludedPersons);
+
+	// Parse excluded persons
 	const excludedIds = excludedPersons
 		? excludedPersons.split(',').map(Number)
 		: [];
 
-	let personCondition = '';
-
-	if (excludedIds.length > 0) {
-		personCondition = `
-			AND all(n IN nodes(path) WHERE NOT (n:Person AND n.id IN $excludedIds))
-		`;
-	}
-
-	console.log('personCondition => ', personCondition);
+	const personCondition = excludedIds.length
+		? `AND all(n IN nodes(path) WHERE NOT (n:Person AND n.id IN $excludedIds))`
+		: '';
 
 	const cypherQuery = `
         MATCH path = allShortestPaths(
@@ -143,25 +138,43 @@ router.get('/movie-to-movie', async (req, res) => {
         )
         WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
         ${personCondition}
-        WITH path, 
-            nodes(path) AS path_nodes, 
+        WITH path,
+            nodes(path) AS path_nodes,
             relationships(path) AS path_rels,
             REDUCE(total_popularity = 0, n IN nodes(path) |
                 CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
             ) AS total_path_popularity
         RETURN
-            [i IN range(0, size(path_nodes)-1) |
+            [
+                n IN path_nodes |
                 CASE 
-                    WHEN i % 2 = 0 THEN path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
-                    ELSE path_nodes[i].name + ' [' + head([r IN path_rels WHERE startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i] AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'  // Person with role
+                    WHEN "Movie" IN labels(n) THEN {
+                        type: "Movie",
+                        id: n.id,
+                        title: n.title,
+                        year: n.year,
+                        poster_url: n.poster_url
+                    }
+                    WHEN "Person" IN labels(n) THEN {
+                        type: "Person",
+                        id: n.id,
+                        name: n.name,
+                        popularity: n.popularity
+                    }
                 END
-            ] AS path_sequence,
+            ] AS path_details,
+            [
+                r IN path_rels |
+                {
+                    start_node_id: startNode(r).id,
+                    end_node_id: endNode(r).id,
+                    role: r.role
+                }
+            ] AS relationships,
             total_path_popularity
         ORDER BY total_path_popularity DESC
         LIMIT 15;
     `;
-
-	console.log('final cypherQuery => ', cypherQuery);
 
 	try {
 		const session = driver.session();
@@ -171,8 +184,10 @@ router.get('/movie-to-movie', async (req, res) => {
 			excludedIds,
 		});
 
+		// Map results to send to the frontend
 		const paths = result.records.map((record) => ({
-			path_sequence: record.get('path_sequence'),
+			path_details: record.get('path_details'),
+			relationships: record.get('relationships'),
 			total_path_popularity: record.get('total_path_popularity'),
 		}));
 
@@ -183,6 +198,7 @@ router.get('/movie-to-movie', async (req, res) => {
 	}
 });
 
+// Movie-to-Person
 router.get('/movie-to-person', async (req, res) => {
 	const { startId, personId, excludedPersons } = req.query;
 
@@ -192,41 +208,46 @@ router.get('/movie-to-person', async (req, res) => {
 			.json({ error: 'Both movie and person IDs are required' });
 	}
 
+	// Parse excludedPersons into an array if provided
 	const excludedIds = excludedPersons
 		? excludedPersons.split(',').map(Number)
 		: [];
 
-	let personCondition = '';
-
-	if (excludedIds.length > 0) {
-		personCondition = `
-			AND all(n IN nodes(path) WHERE NOT (n:Person AND n.id IN $excludedIds))
-		`;
-	}
+	const personExclusionCondition = excludedIds.length
+		? `AND all(n IN nodes(path) WHERE NOT (n:Person AND n.id IN $excludedIds))`
+		: '';
 
 	const cypherQuery = `
-		  MATCH path = allShortestPaths(
-			  (m:Movie {id: $startId})-[:WORKED_WITH*]-(p:Person {id: $personId})
-		  )
-		  WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
-		  ${personCondition}
-		  WITH path, 
-			  nodes(path) AS path_nodes, 
-			  relationships(path) AS path_rels,
-			  REDUCE(total_popularity = 0, n IN nodes(path) |
-				  CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
-			  ) AS total_path_popularity
-		  RETURN
-			  [i IN range(0, size(path_nodes)-1) |
-				  CASE 
-					  WHEN i % 2 = 0 THEN path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
-					  ELSE path_nodes[i].name + ' [' + head([r IN path_rels WHERE startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i] AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'  // Person with role
-				  END
-			  ] AS path_sequence,
-			  total_path_popularity
-		  ORDER BY total_path_popularity DESC
-		  LIMIT 5;
-	  `;
+        MATCH path = allShortestPaths(
+            (m:Movie {id: $startId})-[:WORKED_WITH*]-(p:Person {id: $personId})
+        )
+        WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
+        ${personExclusionCondition}
+        WITH path,
+            [node IN nodes(path) |
+                CASE
+                    WHEN node:Movie THEN {
+                        type: "Movie",
+                        id: node.id,
+                        title: node.title,
+                        year: node.year,
+                        poster_url: node.poster_url
+                    }
+                    WHEN node:Person THEN {
+                        type: "Person",
+                        id: node.id,
+                        name: node.name,
+                        popularity: node.popularity
+                    }
+                END
+            ] AS path_details,
+            REDUCE(total_popularity = 0, n IN nodes(path) |
+                CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
+            ) AS total_path_popularity
+        RETURN path_details, total_path_popularity
+        ORDER BY total_path_popularity DESC
+        LIMIT 15;
+    `;
 
 	try {
 		const session = driver.session();
@@ -237,7 +258,7 @@ router.get('/movie-to-person', async (req, res) => {
 		});
 
 		const paths = result.records.map((record) => ({
-			path_sequence: record.get('path_sequence'),
+			path_details: record.get('path_details'),
 			total_path_popularity: record.get('total_path_popularity'),
 		}));
 
@@ -248,6 +269,7 @@ router.get('/movie-to-person', async (req, res) => {
 	}
 });
 
+// Person-to-Person
 router.get('/person-to-person', async (req, res) => {
 	const { startId, endId, excludedPersons } = req.query;
 
@@ -261,37 +283,41 @@ router.get('/person-to-person', async (req, res) => {
 		? excludedPersons.split(',').map(Number)
 		: [];
 
-	let personCondition = '';
-
-	if (excludedIds.length > 0) {
-		personCondition = `
-			AND all(n IN nodes(path) WHERE NOT (n:Person AND n.id IN $excludedIds))
-		`;
-	}
+	const personExclusionCondition = excludedIds.length
+		? `AND all(n IN nodes(path) WHERE NOT (n:Person AND n.id IN $excludedIds))`
+		: '';
 
 	const cypherQuery = `
-		  MATCH path = allShortestPaths(
-			  (p1:Person {id: $startId})-[:WORKED_WITH*]-(p2:Person {id: $endId})
-		  )
-		  WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
-		  ${personCondition}
-		  WITH path, 
-			   nodes(path) AS path_nodes, 
-			   relationships(path) AS path_rels,
-			   REDUCE(total_popularity = 0, n IN nodes(path) |
-				   CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
-			   ) AS total_path_popularity
-		  RETURN
-			  [i IN range(0, size(path_nodes)-1) |
-				  CASE 
-					  WHEN i % 2 = 0 THEN path_nodes[i].name + ' [' + head([r IN path_rels WHERE (startNode(r) = path_nodes[i] OR endNode(r) = path_nodes[i]) AND r.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"] | r.role]) + ']'
-					  ELSE path_nodes[i].title + ' (' + COALESCE(path_nodes[i].year, 'Unknown') + ')'  // Movie with release year
-				  END
-			  ] AS path_sequence,
-			  total_path_popularity
-		  ORDER BY total_path_popularity DESC
-		  LIMIT 5;
-	  `;
+        MATCH path = allShortestPaths(
+            (p1:Person {id: $startId})-[:WORKED_WITH*]-(p2:Person {id: $endId})
+        )
+        WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
+        ${personExclusionCondition}
+        WITH path,
+            [node IN nodes(path) |
+                CASE
+                    WHEN node:Movie THEN {
+                        type: "Movie",
+                        id: node.id,
+                        title: node.title,
+                        year: node.year,
+                        poster_url: node.poster_url
+                    }
+                    WHEN node:Person THEN {
+                        type: "Person",
+                        id: node.id,
+                        name: node.name,
+                        popularity: node.popularity
+                    }
+                END
+            ] AS path_details,
+            REDUCE(total_popularity = 0, n IN nodes(path) |
+                CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
+            ) AS total_path_popularity
+        RETURN path_details, total_path_popularity
+        ORDER BY total_path_popularity DESC
+        LIMIT 15;
+    `;
 
 	try {
 		const session = driver.session();
@@ -302,7 +328,7 @@ router.get('/person-to-person', async (req, res) => {
 		});
 
 		const paths = result.records.map((record) => ({
-			path_sequence: record.get('path_sequence'),
+			path_details: record.get('path_details'),
 			total_path_popularity: record.get('total_path_popularity'),
 		}));
 
