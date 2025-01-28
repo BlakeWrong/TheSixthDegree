@@ -7,49 +7,109 @@ import {
 	TableHead,
 	TableRow,
 	Paper,
+	Box,
+	Typography,
 } from '@mui/material';
 
 const ResultsTable = ({ results }) => {
 	if (!results || results.length === 0) {
-		return <div>No results found.</div>;
+		return <Typography variant="body1">No results found.</Typography>;
 	}
 
 	return (
-		<TableContainer component={Paper}>
+		<TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
 			<Table>
 				<TableHead>
 					<TableRow>
-						<TableCell>Path</TableCell>
-						<TableCell>Total Popularity</TableCell>
+						<TableCell>
+							<Typography variant="h6">Path</Typography>
+						</TableCell>
 					</TableRow>
 				</TableHead>
 				<TableBody>
 					{results.map((result, index) => (
 						<TableRow key={index}>
 							<TableCell>
-								{result.path_sequence.map((node, idx) => (
-									<span
-										key={idx}
-										style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
-									>
-										{/* Check if node is a movie with a poster */}
-										{node.poster_url ? (
-											<img
-												src={`https://image.tmdb.org/t/p/w92${node.poster_url}`} // Example TMDb image base URL
-												alt={node.title || 'Poster'}
-												style={{
-													width: '50px',
-													height: '75px',
-													objectFit: 'cover',
-													borderRadius: '4px',
+								<Box
+									sx={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 2,
+										whiteSpace: 'nowrap',
+										overflowX: 'auto',
+										paddingBottom: 1,
+										'&::-webkit-scrollbar': { height: 6 },
+										'&::-webkit-scrollbar-thumb': {
+											backgroundColor: '#ccc',
+											borderRadius: 3,
+										},
+										'&::-webkit-scrollbar-track': {
+											backgroundColor: '#f5f5f5',
+										},
+									}}
+								>
+									{result.path_details.map((node, nodeIndex) => (
+										<React.Fragment key={nodeIndex}>
+											<Box
+												sx={{
+													display: 'flex',
+													flexDirection: 'column',
+													alignItems: 'center',
+													textAlign: 'center',
+													gap: 1,
 												}}
-											/>
-										) : null}
-										<span>{node}</span>
-									</span>
-								))}
+											>
+												<img
+													src={
+														node.type === 'Movie'
+															? node.poster_url
+																? `https://image.tmdb.org/t/p/w200${node.poster_url}`
+																: '/noposter.png'
+															: node.profile_url
+															? `https://image.tmdb.org/t/p/w200${node.profile_url}`
+															: '/comingsoon.png'
+													}
+													alt={node.type === 'Movie' ? node.title : node.name}
+													style={{
+														width: 50,
+														height: 75,
+														objectFit: 'cover',
+														borderRadius: 4,
+													}}
+												/>
+												<Typography variant="body2" component="div">
+													{node.type === 'Movie' ? (
+														<>
+															<strong>{node.title}</strong>
+															<br />({node.year || 'Unknown'})
+														</>
+													) : (
+														<strong>{node.name}</strong>
+													)}
+												</Typography>
+											</Box>
+											{/* Add arrow and relationship text */}
+											{nodeIndex < result.path_details.length - 1 && (
+												<Box
+													sx={{
+														display: 'flex',
+														flexDirection: 'column',
+														alignItems: 'center',
+														gap: 0.5,
+														fontSize: 12,
+														color: '#555',
+													}}
+												>
+													<span style={{ fontSize: '1.5rem', color: '#888' }}>→</span>
+													<Typography variant="caption">
+														{result.relationships[nodeIndex]?.role || 'Related'}
+													</Typography>
+												</Box>
+											)}
+										</React.Fragment>
+									))}
+								</Box>
 							</TableCell>
-							<TableCell>{result.total_path_popularity}</TableCell>
 						</TableRow>
 					))}
 				</TableBody>

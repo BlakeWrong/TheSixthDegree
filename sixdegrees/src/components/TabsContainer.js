@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Tabs, Tab, Box, Paper } from '@mui/material';
 import MovieToMovieTab from './MovieToMovieTab';
 import MovieToPersonTab from './MovieToPersonTab';
 import PersonToPersonTab from './PersonToPersonTab';
@@ -20,44 +21,20 @@ function TabsContainer() {
 	};
 
 	return (
-		<div>
-			<nav style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-				<button
-					onClick={() => setActiveTab('movie-to-movie')}
-					style={{
-						padding: '0.5rem 1rem',
-						backgroundColor: activeTab === 'movie-to-movie' ? '#007bff' : '#fff',
-						color: activeTab === 'movie-to-movie' ? '#fff' : '#000',
-						border: '1px solid #ccc',
-					}}
-				>
-					Movie to Movie
-				</button>
-				<button
-					onClick={() => setActiveTab('movie-to-person')}
-					style={{
-						padding: '0.5rem 1rem',
-						backgroundColor: activeTab === 'movie-to-person' ? '#007bff' : '#fff',
-						color: activeTab === 'movie-to-person' ? '#fff' : '#000',
-						border: '1px solid #ccc',
-					}}
-				>
-					Movie to Person
-				</button>
-				<button
-					onClick={() => setActiveTab('person-to-person')}
-					style={{
-						padding: '0.5rem 1rem',
-						backgroundColor: activeTab === 'person-to-person' ? '#007bff' : '#fff',
-						color: activeTab === 'person-to-person' ? '#fff' : '#000',
-						border: '1px solid #ccc',
-					}}
-				>
-					Person to Person
-				</button>
-			</nav>
-			<div>{renderActiveTab()}</div>
-		</div>
+		<Paper elevation={3} sx={{ p: 3 }}>
+			<Tabs
+				value={activeTab}
+				onChange={(e, newValue) => setActiveTab(newValue)}
+				textColor="primary"
+				indicatorColor="primary"
+				centered
+			>
+				<Tab value="movie-to-movie" label="Movie to Movie" />
+				<Tab value="movie-to-person" label="Movie to Person" />
+				<Tab value="person-to-person" label="Person to Person" />
+			</Tabs>
+			<Box sx={{ mt: 3 }}>{renderActiveTab()}</Box>
+		</Paper>
 	);
 }
 

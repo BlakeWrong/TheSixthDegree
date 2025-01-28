@@ -13,6 +13,12 @@
 	"type": "commonjs",
 	"description": "",
 	"dependencies": {
-		"git-filter-repo": "^0.0.30"
+		"@emotion/react": "^11.14.0",
+		"@emotion/styled": "^11.14.0",
+		"@mui/material": "^6.4.1",
+		"git-filter-repo": "^0.0.30",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
+		"react-router-dom": "^7.1.3"
 	}
 }

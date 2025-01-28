@@ -1,32 +1,37 @@
 import React, { useState } from 'react';
+import { TextField, MenuItem, Box, CircularProgress } from '@mui/material';
 import axios from 'axios';
 
 function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 	const [query, setQuery] = useState('');
 	const [options, setOptions] = useState([]);
+	const [loading, setLoading] = useState(false);
 
 	const handleChange = async (event) => {
 		const value = event.target.value;
 		setQuery(value);
 
 		if (value.length > 2) {
+			setLoading(true);
 			try {
 				const endpoint =
 					type === 'person' ? '/api/persons/search' : '/api/movies/search';
-
-				const response = await axios.get(endpoint, {
-					params: { query: value },
-				});
+				const response = await axios.get(endpoint, { params: { query: value } });
 
 				setOptions(
 					response.data.map((item) => ({
 						id: item.id,
-						name: type === 'person' ? item.name : `${item.title} (${item.year})`,
+						name:
+							type === 'person'
+								? item.name
+								: `${item.title} (${item.year || 'Unknown'})`,
 					}))
 				);
 			} catch (error) {
 				console.error('Error fetching search results:', error);
 				setOptions([]);
+			} finally {
+				setLoading(false);
 			}
 		} else {
 			setOptions([]);
@@ -34,59 +39,53 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 	};
 
 	const handleSelect = (option) => {
-		setQuery(option.name); // Update the input field with the name/display
-		onSelect(option.id, option.name); // Pass both the ID and name to the parent component
-		setOptions([]); // Clear the dropdown
+		setQuery(option.name); // Update the text field
+		onSelect(option.id, option.name); // Pass ID and name to parent component
+		setOptions([]); // Clear dropdown
 	};
 
 	return (
-		<div style={{ position: 'relative', marginRight: '1rem' }}>
-			<input
-				type="text"
-				placeholder={placeholder}
+		<Box sx={{ position: 'relative', width: '100%' }}>
+			<TextField
+				label={placeholder}
+				variant="outlined"
+				fullWidth
 				value={query}
 				onChange={handleChange}
-				style={{
-					width: '100%',
-					padding: '0.5rem',
-					borderRadius: '4px',
-					border: '1px solid #ccc',
+				autoComplete="off"
+				InputProps={{
+					endAdornment: loading ? (
+						<CircularProgress size={20} sx={{ color: 'gray' }} />
+					) : null,
 				}}
 			/>
 			{options.length > 0 && (
-				<ul
-					style={{
+				<Box
+					sx={{
 						position: 'absolute',
 						top: '100%',
 						left: 0,
 						right: 0,
 						backgroundColor: 'white',
-						listStyle: 'none',
-						padding: 0,
-						margin: 0,
-						border: '1px solid #ccc',
-						borderRadius: '4px',
+						boxShadow: 3,
 						zIndex: 10,
 						maxHeight: '200px',
 						overflowY: 'auto',
+						borderRadius: '4px',
 					}}
 				>
 					{options.map((option) => (
-						<li
+						<MenuItem
 							key={option.id}
 							onClick={() => handleSelect(option)}
-							style={{
-								padding: '0.5rem',
-								cursor: 'pointer',
-								borderBottom: '1px solid #eee',
-							}}
+							sx={{ padding: '8px 16px', cursor: 'pointer' }}
 						>
 							{option.name}
-						</li>
+						</MenuItem>
 					))}
-				</ul>
+				</Box>
 			)}
-		</div>
+		</Box>
 	);
 }
 
