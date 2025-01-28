@@ -11,7 +11,7 @@ import {
 	Typography,
 } from '@mui/material';
 
-// Bi-directional relationship map
+// Relationship text mapping
 const RELATIONSHIP_MAP = {
 	Director: {
 		movieToPerson: 'Directed by',
@@ -34,6 +34,9 @@ const RELATIONSHIP_MAP = {
 		personToMovie: 'Wrote',
 	},
 };
+
+// Function to convert Neo4j integers
+const convertId = (id) => (id && typeof id === 'object' ? id.low : id);
 
 const ResultsTable = ({ results }) => {
 	if (!results || results.length === 0) {
@@ -82,12 +85,25 @@ const ResultsTable = ({ results }) => {
 									{result.path_details.map((node, nodeIndex) => (
 										<React.Fragment key={nodeIndex}>
 											<Box
+												component="a"
+												href={
+													node.type === 'Movie'
+														? `https://www.themoviedb.org/movie/${convertId(node.id)}`
+														: `https://www.themoviedb.org/person/${convertId(node.id)}`
+												}
+												target="_blank"
+												rel="noopener noreferrer"
 												sx={{
+													textDecoration: 'none', // Remove underline
+													color: 'inherit', // Use the default text color
 													display: 'flex',
 													flexDirection: 'column',
 													alignItems: 'center',
 													textAlign: 'center',
 													gap: 1,
+													'&:hover img': {
+														boxShadow: (theme) => `0 0 8px ${theme.palette.primary.main}`,
+													},
 												}}
 											>
 												<img
@@ -108,7 +124,11 @@ const ResultsTable = ({ results }) => {
 														borderRadius: 4,
 													}}
 												/>
-												<Typography variant="body2" component="div">
+												<Typography
+													variant="body2"
+													component="div"
+													sx={{ color: 'inherit' }} // Ensure text color is not overridden
+												>
 													{node.type === 'Movie' ? (
 														<>
 															<strong>{node.title}</strong>
@@ -135,7 +155,7 @@ const ResultsTable = ({ results }) => {
 													<Typography variant="caption">
 														{getRelationshipText(
 															result.relationships[nodeIndex]?.role,
-															result.path_details[nodeIndex].type === 'Movie'
+															node.type === 'Movie'
 														)}
 													</Typography>
 												</Box>
