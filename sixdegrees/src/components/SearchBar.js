@@ -81,9 +81,10 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 						backgroundColor: 'white',
 						boxShadow: 3,
 						zIndex: 10,
-						maxHeight: '300px', // Set a reasonable max height
-						overflowY: 'auto', // Only allow scrolling vertically for long lists
+						maxHeight: '300px', // Allow vertical scrolling for long lists
+						overflowY: 'auto',
 						borderRadius: '4px',
+						minWidth: '100%', // At least as wide as the search bar
 						whiteSpace: 'nowrap', // Prevent text from wrapping
 					}}
 				>
@@ -94,7 +95,6 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 							sx={{
 								padding: '8px 16px',
 								cursor: 'pointer',
-								minWidth: 'fit-content', // Ensure the item dynamically sizes
 							}}
 						>
 							{option.name}
