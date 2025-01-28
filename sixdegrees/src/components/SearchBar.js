@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { TextField, MenuItem, Box, CircularProgress } from '@mui/material';
 import axios from 'axios';
 import debounce from 'lodash.debounce';
@@ -8,9 +8,9 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 	const [options, setOptions] = useState([]);
 	const [loading, setLoading] = useState(false);
 
-	// Debounced API request
+	// Function to fetch options
 	const fetchOptions = useCallback(
-		debounce(async (value) => {
+		async (value) => {
 			if (value.length > 2) {
 				setLoading(true);
 				try {
@@ -36,14 +36,23 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 			} else {
 				setOptions([]);
 			}
-		}, 300), // 300ms delay
-		[]
+		},
+		[type] // Dependencies: update when `type` changes
 	);
+
+	// Create a debounced function
+	const debounceFetchRef = useRef();
+	useEffect(() => {
+		debounceFetchRef.current = debounce(fetchOptions, 300); // 300ms delay
+		return () => {
+			debounceFetchRef.current.cancel(); // Cleanup the debounced function
+		};
+	}, [fetchOptions]); // Add `fetchOptions` as a dependency
 
 	const handleChange = (event) => {
 		const value = event.target.value;
 		setQuery(value);
-		fetchOptions(value); // Call the debounced function
+		debounceFetchRef.current(value); // Call the debounced function
 	};
 
 	const handleSelect = (option) => {
