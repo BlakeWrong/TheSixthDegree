@@ -7,6 +7,8 @@ import {
 	useMediaQuery,
 	Box,
 	Paper,
+	IconButton,
+	Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import MovieToMovieTab from './MovieToMovieTab';
@@ -20,6 +22,7 @@ function TabsContainer() {
 	const theme = useTheme();
 	const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
+	// Render the correct content for the active tab
 	const renderActiveTab = () => {
 		switch (activeTab) {
 			case 'movie-to-movie':
@@ -33,14 +36,17 @@ function TabsContainer() {
 		}
 	};
 
+	// Handle tab change for larger screens
 	const handleTabChange = (event, newValue) => {
 		setActiveTab(newValue);
 	};
 
+	// Handle menu opening for smaller screens
 	const handleMenuOpen = (event) => {
 		setMenuAnchorEl(event.currentTarget);
 	};
 
+	// Handle menu item selection and close the menu
 	const handleMenuClose = (tab) => {
 		setActiveTab(tab);
 		setMenuAnchorEl(null);
@@ -52,6 +58,7 @@ function TabsContainer() {
 				display: 'flex',
 				justifyContent: 'center',
 				mt: 3,
+				px: 2, // Add padding for small screens
 			}}
 		>
 			<Paper
@@ -68,25 +75,55 @@ function TabsContainer() {
 				{/* Tabs or Hamburger Menu */}
 				{isSmallScreen ? (
 					<Box>
-						<MenuIcon
+						<IconButton
 							aria-controls="tabs-menu"
 							aria-haspopup="true"
 							onClick={handleMenuOpen}
-							sx={{ cursor: 'pointer', fontSize: 30 }}
-						/>
+							sx={{
+								display: 'flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+								color: theme.palette.primary.main,
+							}}
+						>
+							<MenuIcon fontSize="large" />
+							<Typography
+								sx={{
+									ml: 1,
+									fontWeight: 'bold',
+									color: theme.palette.primary.main,
+								}}
+							>
+								Menu
+							</Typography>
+						</IconButton>
 						<Menu
 							id="tabs-menu"
 							anchorEl={menuAnchorEl}
 							open={Boolean(menuAnchorEl)}
 							onClose={() => handleMenuClose(activeTab)}
+							PaperProps={{
+								style: {
+									width: '200px',
+								},
+							}}
 						>
-							<MenuItem onClick={() => handleMenuClose('movie-to-movie')}>
+							<MenuItem
+								onClick={() => handleMenuClose('movie-to-movie')}
+								selected={activeTab === 'movie-to-movie'}
+							>
 								Movie to Movie
 							</MenuItem>
-							<MenuItem onClick={() => handleMenuClose('movie-to-person')}>
+							<MenuItem
+								onClick={() => handleMenuClose('movie-to-person')}
+								selected={activeTab === 'movie-to-person'}
+							>
 								Movie to Person
 							</MenuItem>
-							<MenuItem onClick={() => handleMenuClose('person-to-person')}>
+							<MenuItem
+								onClick={() => handleMenuClose('person-to-person')}
+								selected={activeTab === 'person-to-person'}
+							>
 								Person to Person
 							</MenuItem>
 						</Menu>

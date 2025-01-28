@@ -26,45 +26,168 @@ function App() {
 	const theme = createTheme({
 		palette: {
 			primary: {
-				main: '#002b80', // Deep navy
-				contrastText: '#ffffff', // White text for better contrast
+				main: appColor,
+				contrastText: '#ffffff',
 			},
 			secondary: {
-				main: '#ff6f61', // Optional accent color (can be replaced with another)
+				main: '#ff6f61',
 			},
 			background: {
-				default: '#f4f6f8', // Light gray background
+				default: '#f4f6f8', // General background
+				paper: '#ffffff', // Background for cards and dialogs
 			},
-			text: {
-				primary: '#001f3f', // Default text color
-				secondary: '#4a4a4a', // Optional secondary text color
+		},
+		typography: {
+			fontFamily: "'Poppins', 'Roboto', sans-serif",
+			h1: {
+				fontFamily: "'Poppins', sans-serif",
+				fontWeight: 600,
+				fontSize: '2rem',
+			},
+			h2: {
+				fontFamily: "'Poppins', sans-serif",
+				fontWeight: 500,
+				fontSize: '1.75rem',
+			},
+			h3: {
+				fontFamily: "'Poppins', sans-serif",
+				fontWeight: 500,
+				fontSize: '1.5rem',
+			},
+			body1: {
+				fontFamily: "'Roboto', sans-serif",
+				fontWeight: 400,
+				fontSize: '1rem',
+			},
+			body2: {
+				fontFamily: "'Roboto', sans-serif",
+				fontWeight: 300,
+				fontSize: '0.875rem',
+			},
+			button: {
+				fontFamily: "'Poppins', sans-serif",
+				textTransform: 'none', // Keep button text lowercase
+				fontWeight: 500,
 			},
 		},
 		components: {
-			MuiButton: {
+			MuiDrawer: {
 				styleOverrides: {
-					root: {
-						textTransform: 'none', // Disable uppercase for buttons
-						borderRadius: '8px', // Rounded corners for buttons
+					paper: {
+						borderRadius: '8px', // Rounded corners
+						padding: '16px', // Internal padding
+						boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.2)', // Shadow for depth
+						backgroundColor: '#ffffff', // Background color
+						width: '250px', // Drawer width
 					},
 				},
 			},
+			MuiList: {
+				styleOverrides: {
+					root: {
+						padding: 0, // Remove default padding
+					},
+				},
+			},
+			MuiListItem: {
+				styleOverrides: {
+					root: {
+						borderRadius: '4px',
+						margin: '8px 0',
+						'&:hover': {
+							backgroundColor: '#f0f0f0', // Subtle hover effect
+						},
+					},
+				},
+			},
+			MuiListItemButton: {
+				styleOverrides: {
+					root: {
+						padding: '8px 16px',
+						'&:hover': {
+							backgroundColor: '#e0e0e0',
+						},
+					},
+				},
+			},
+			MuiListItemText: {
+				styleOverrides: {
+					primary: {
+						fontSize: '1rem',
+						fontWeight: 500,
+						color: '#002b80', // Text color matching primary theme color
+					},
+				},
+			},
+			// Style overrides for TextField
 			MuiOutlinedInput: {
 				styleOverrides: {
 					root: {
-						'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-							borderColor: '#002b80', // Deep navy border when focused
+						borderRadius: '8px', // Rounded corners
+						backgroundColor: '#f8f9fa', // Light background
+						boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)', // Subtle shadow
+						'&:hover .MuiOutlinedInput-notchedOutline': {
+							borderColor: '#1976d2', // Lighter blue on hover
 						},
+						'&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+							borderColor: appColor, // Deep navy on focus
+						},
+					},
+					notchedOutline: {
+						borderColor: '#ccc', // Default border color
 					},
 				},
 			},
-			MuiTab: {
+			// Style overrides for Dialog
+			MuiDialog: {
+				styleOverrides: {
+					paper: {
+						borderRadius: '16px', // Rounded corners
+						padding: '20px', // Internal padding
+						boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.2)', // Custom shadow
+						backgroundColor: '#ffffff', // Dialog background
+					},
+				},
+			},
+			// Style overrides for DialogTitle
+			MuiDialogTitle: {
 				styleOverrides: {
 					root: {
-						textTransform: 'none', // Disable uppercase for tabs
-						'&.Mui-selected': {
-							color: '#002b80', // Deep navy for the selected tab
-						},
+						fontSize: '1.25rem',
+						fontWeight: 600,
+						borderBottom: `1px solid #e0e0e0`,
+						marginBottom: '1rem',
+						paddingBottom: '8px',
+					},
+				},
+			},
+			// Style overrides for DialogContent
+			MuiDialogContent: {
+				styleOverrides: {
+					root: {
+						fontSize: '1rem',
+						color: '#4a4a4a',
+						lineHeight: '1.6',
+					},
+				},
+			},
+			// Style overrides for DialogActions
+			MuiDialogActions: {
+				styleOverrides: {
+					root: {
+						justifyContent: 'flex-end',
+						paddingTop: '1rem',
+						borderTop: `1px solid #e0e0e0`,
+					},
+				},
+			},
+			// Style overrides for Button inside dialogs
+			MuiButton: {
+				styleOverrides: {
+					root: {
+						textTransform: 'none',
+						borderRadius: '8px',
+						padding: '8px 16px',
 					},
 				},
 			},
