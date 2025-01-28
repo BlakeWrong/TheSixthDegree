@@ -13,8 +13,18 @@ router.get('/search', async (req, res) => {
 	const session = driver.session();
 
 	try {
+		// Normalize input query (removing punctuation and special characters)
+		const normalizeString = (str) =>
+			str
+				.normalize('NFD') // Decompose accented characters
+				.replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+				.replace(/[^\w\s]/g, '') // Remove punctuation
+				.toLowerCase(); // Convert to lowercase
+
+		const normalizedQuery = normalizeString(query);
+
 		// Split the query into tokens
-		const tokens = query.match(/\b\w+\b/g); // Matches words and numbers
+		const tokens = normalizedQuery.match(/\b\w+\b/g); // Matches words and numbers
 		if (!tokens) {
 			return res.json([]); // Return empty array if no tokens are present
 		}
@@ -56,13 +66,13 @@ router.get('/search', async (req, res) => {
         `;
 		const params = {};
 
-		// Add title matching
+		// Add title matching using APOC for normalization
 		if (titleTokens.length > 0) {
 			cypherQuery += ` AND ${titleTokens
-				.map((_, i) => `toLower(m.title) CONTAINS toLower($titleToken${i})`)
+				.map((_, i) => `apoc.text.clean(toLower(m.title)) CONTAINS $titleToken${i}`)
 				.join(' AND ')}`;
 			titleTokens.forEach((token, i) => {
-				params[`titleToken${i}`] = token;
+				params[`titleToken${i}`] = normalizeString(token); // Normalize token
 			});
 		}
 
