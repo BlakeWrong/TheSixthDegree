@@ -67,7 +67,7 @@ const ResultsTable = ({ results }) => {
 								<Box
 									sx={{
 										display: 'flex',
-										alignItems: 'center',
+										alignItems: 'top',
 										gap: 2,
 										whiteSpace: 'nowrap',
 										overflowX: 'auto',
