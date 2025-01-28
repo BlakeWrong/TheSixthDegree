@@ -11,10 +11,41 @@ import {
 	Typography,
 } from '@mui/material';
 
+// Bi-directional relationship map
+const RELATIONSHIP_MAP = {
+	Director: {
+		movieToPerson: 'Directed by',
+		personToMovie: 'Directed',
+	},
+	Actor: {
+		movieToPerson: 'Featured',
+		personToMovie: 'Acted in',
+	},
+	Cinematographer: {
+		movieToPerson: 'Shot by',
+		personToMovie: 'Shot',
+	},
+	Composer: {
+		movieToPerson: 'Composed by',
+		personToMovie: 'Composed',
+	},
+	Writer: {
+		movieToPerson: 'Written by',
+		personToMovie: 'Wrote',
+	},
+};
+
 const ResultsTable = ({ results }) => {
 	if (!results || results.length === 0) {
 		return <Typography variant="body1">No results found.</Typography>;
 	}
+
+	const getRelationshipText = (relationship, isMovieToPerson) => {
+		const direction = isMovieToPerson ? 'movieToPerson' : 'personToMovie';
+		return (
+			RELATIONSHIP_MAP[relationship]?.[direction] || relationship || 'Related'
+		);
+	};
 
 	return (
 		<TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
@@ -102,7 +133,10 @@ const ResultsTable = ({ results }) => {
 												>
 													<span style={{ fontSize: '1.5rem', color: '#888' }}>→</span>
 													<Typography variant="caption">
-														{result.relationships[nodeIndex]?.role || 'Related'}
+														{getRelationshipText(
+															result.relationships[nodeIndex]?.role,
+															result.path_details[nodeIndex].type === 'Movie'
+														)}
 													</Typography>
 												</Box>
 											)}
