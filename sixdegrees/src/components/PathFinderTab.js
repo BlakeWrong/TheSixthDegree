@@ -46,7 +46,14 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 			<Typography variant="h5" sx={{ mb: 3 }}>
 				{title}
 			</Typography>
-			<Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+			<Box
+				sx={{
+					display: 'flex',
+					flexDirection: { xs: 'column', sm: 'row' },
+					gap: 2,
+					mb: 3,
+				}}
+			>
 				{searchBarConfig.map(({ key, placeholder, type }) => (
 					<SearchBar
 						key={key}

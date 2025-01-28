@@ -1,7 +1,6 @@
 import React from 'react';
 import {
 	Typography,
-	Box,
 	Container,
 	Accordion,
 	AccordionSummary,

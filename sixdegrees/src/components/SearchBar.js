@@ -39,9 +39,9 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 	};
 
 	const handleSelect = (option) => {
-		setQuery(option.name); // Update the text field
-		onSelect(option.id, option.name); // Pass ID and name to parent component
-		setOptions([]); // Clear dropdown
+		setQuery(option.name);
+		onSelect(option.id, option.name);
+		setOptions([]);
 	};
 
 	return (
