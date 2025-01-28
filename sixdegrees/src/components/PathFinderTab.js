@@ -7,23 +7,33 @@ import ResultsTable from './ResultsTable';
 function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 	const [searchValues, setSearchValues] = useState({});
 	const [excludedPersons, setExcludedPersons] = useState([]);
+	const [currentExcludeValue, setCurrentExcludeValue] = useState('');
 	const [results, setResults] = useState([]);
 
-	const handleSearchValueChange = (key, value) => {
-		setSearchValues({ ...searchValues, [key]: value });
+	const handleSearchValueChange = (key, id, name) => {
+		setSearchValues({ ...searchValues, [key]: { id, name } });
 	};
 
 	const handleExcludePerson = (id, name) => {
-		if (excludedPersons.some((person) => person.id === id)) return;
-		setExcludedPersons([...excludedPersons, { id, name }]);
+		if (id && !excludedPersons.some((person) => person.id === id)) {
+			setExcludedPersons([...excludedPersons, { id, name }]);
+			setCurrentExcludeValue(''); // Clear input after adding
+		}
 	};
 
 	const handleRemoveExcludedPerson = (id) => {
 		setExcludedPersons(excludedPersons.filter((person) => person.id !== id));
 	};
 
+	const clearForm = () => {
+		setSearchValues({});
+		setExcludedPersons([]);
+		setResults([]);
+		setCurrentExcludeValue(''); // Clear input
+	};
+
 	const fetchPath = async () => {
-		if (Object.values(searchValues).some((value) => !value)) {
+		if (Object.values(searchValues).some((value) => !value.id)) {
 			alert('Please fill out all required search fields.');
 			return;
 		}
@@ -31,7 +41,9 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 		try {
 			const response = await axios.get(fetchEndpoint, {
 				params: {
-					...searchValues,
+					...Object.fromEntries(
+						Object.entries(searchValues).map(([key, value]) => [key, value.id])
+					),
 					excludedPersons: excludedPersons.map((person) => person.id).join(','),
 				},
 			});
@@ -59,19 +71,26 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 						key={key}
 						placeholder={placeholder}
 						type={type}
-						onSelect={(id, name) => handleSearchValueChange(key, id)}
+						value={searchValues[key]?.name || ''}
+						onSelect={(id, name) => handleSearchValueChange(key, id, name)}
 					/>
 				))}
 				<SearchBar
 					placeholder="Exclude Person"
 					type="person"
-					onSelect={(id, name) => handleExcludePerson(id, name)}
+					value={currentExcludeValue}
+					onSelect={(id, name) => {
+						handleExcludePerson(id, name);
+						setCurrentExcludeValue(name || ''); // Update input value after selection
+					}}
 				/>
 				<Button variant="contained" sx={{ bgcolor: '#002b80' }} onClick={fetchPath}>
 					Search
 				</Button>
+				<Button variant="outlined" color="secondary" onClick={clearForm}>
+					Clear
+				</Button>
 			</Box>
-			{/* Display excluded persons */}
 			{excludedPersons.length > 0 && (
 				<Box sx={{ mb: 3 }}>
 					<Typography variant="subtitle1">Excluded Persons:</Typography>
@@ -91,7 +110,6 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 					</ul>
 				</Box>
 			)}
-			{/* Results Table */}
 			<ResultsTable results={results} />
 		</Box>
 	);
