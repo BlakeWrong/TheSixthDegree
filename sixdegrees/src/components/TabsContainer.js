@@ -65,7 +65,6 @@ function TabsContainer() {
 				elevation={3}
 				sx={{
 					width: '100%',
-					maxWidth: '800px',
 					padding: 3,
 					backgroundColor: 'white',
 					borderRadius: 2,

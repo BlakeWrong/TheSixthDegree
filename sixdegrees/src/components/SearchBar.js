@@ -1,51 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { TextField, MenuItem, Box, CircularProgress } from '@mui/material';
 import axios from 'axios';
+import debounce from 'lodash.debounce';
 
 function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 	const [query, setQuery] = useState('');
 	const [options, setOptions] = useState([]);
 	const [loading, setLoading] = useState(false);
 
-	const handleChange = async (event) => {
+	// Debounced API request
+	const fetchOptions = useCallback(
+		debounce(async (value) => {
+			if (value.length > 2) {
+				setLoading(true);
+				try {
+					const endpoint =
+						type === 'person' ? '/api/persons/search' : '/api/movies/search';
+					const response = await axios.get(endpoint, { params: { query: value } });
+
+					setOptions(
+						response.data.map((item) => ({
+							id: item.id,
+							name:
+								type === 'person'
+									? item.name
+									: `${item.title} (${item.year || 'Unknown'})`,
+						}))
+					);
+				} catch (error) {
+					console.error('Error fetching search results:', error);
+					setOptions([]);
+				} finally {
+					setLoading(false);
+				}
+			} else {
+				setOptions([]);
+			}
+		}, 300), // 300ms delay
+		[]
+	);
+
+	const handleChange = (event) => {
 		const value = event.target.value;
 		setQuery(value);
-
-		if (value.length > 2) {
-			setLoading(true);
-			try {
-				const endpoint =
-					type === 'person' ? '/api/persons/search' : '/api/movies/search';
-				const response = await axios.get(endpoint, { params: { query: value } });
-
-				setOptions(
-					response.data.map((item) => ({
-						id: item.id,
-						name:
-							type === 'person'
-								? item.name
-								: `${item.title} (${item.year || 'Unknown'})`,
-					}))
-				);
-			} catch (error) {
-				console.error('Error fetching search results:', error);
-				setOptions([]);
-			} finally {
-				setLoading(false);
-			}
-		} else {
-			setOptions([]);
-		}
+		fetchOptions(value); // Call the debounced function
 	};
 
 	const handleSelect = (option) => {
-		setQuery(option.name);
-		onSelect(option.id, option.name);
-		setOptions([]);
+		setQuery(option.name); // Update the text field
+		onSelect(option.id, option.name); // Pass ID and name to parent component
+		setOptions([]); // Clear dropdown
 	};
 
 	return (
-		<Box sx={{ position: 'relative', width: '100%' }}>
+		<Box
+			sx={{
+				position: 'relative',
+				width: '100%',
+			}}
+		>
 			<TextField
 				label={placeholder}
 				variant="outlined"
@@ -65,20 +78,24 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 						position: 'absolute',
 						top: '100%',
 						left: 0,
-						right: 0,
 						backgroundColor: 'white',
 						boxShadow: 3,
 						zIndex: 10,
-						maxHeight: '200px',
-						overflowY: 'auto',
+						maxHeight: '300px', // Set a reasonable max height
+						overflowY: 'auto', // Only allow scrolling vertically for long lists
 						borderRadius: '4px',
+						whiteSpace: 'nowrap', // Prevent text from wrapping
 					}}
 				>
 					{options.map((option) => (
 						<MenuItem
 							key={option.id}
 							onClick={() => handleSelect(option)}
-							sx={{ padding: '8px 16px', cursor: 'pointer' }}
+							sx={{
+								padding: '8px 16px',
+								cursor: 'pointer',
+								minWidth: 'fit-content', // Ensure the item dynamically sizes
+							}}
 						>
 							{option.name}
 						</MenuItem>

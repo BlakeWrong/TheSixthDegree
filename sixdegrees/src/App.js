@@ -224,7 +224,7 @@ function App() {
 							</Button>
 						</Toolbar>
 					</AppBar>
-					<Container maxWidth="lg" sx={{ mt: 4, mb: 4, flexGrow: 1 }}>
+					<Container width="100%" maxWidth="xl" sx={{ mt: 4, mb: 4, flexGrow: 1 }}>
 						<Routes>
 							<Route path="/" element={<TabsContainer />} />
 							<Route path="/about" element={<About />} />
