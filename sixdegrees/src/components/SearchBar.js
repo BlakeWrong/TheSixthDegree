@@ -3,11 +3,23 @@ import { TextField, MenuItem, Box, CircularProgress } from '@mui/material';
 import axios from 'axios';
 import debounce from 'lodash.debounce';
 
-function SearchBar({ placeholder, onSelect, type = 'movie' }) {
+function SearchBar({
+	placeholder,
+	onSelect,
+	type = 'movie',
+	value,
+	clearSignal,
+}) {
 	const [query, setQuery] = useState('');
 	const [options, setOptions] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const dropdownRef = useRef(null);
+
+	// Effect to clear input when clearSignal changes
+	useEffect(() => {
+		setQuery('');
+		setOptions([]);
+	}, [clearSignal]);
 
 	// Debounced API request
 	const debouncedFetch = useRef(
@@ -45,7 +57,7 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 		(event) => {
 			const value = event.target.value;
 			setQuery(value);
-			debouncedFetch(value); // Use the debounced function
+			debouncedFetch(value);
 		},
 		[debouncedFetch]
 	);
@@ -66,9 +78,9 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 
 	// Handle selection
 	const handleSelect = (option) => {
-		setQuery(option.name); // Set selected value
-		onSelect(option.id, option.name); // Pass data to parent
-		setOptions([]); // Clear dropdown
+		setQuery(option.name);
+		onSelect(option.id, option.name);
+		setOptions([]);
 	};
 
 	return (
@@ -101,10 +113,10 @@ function SearchBar({ placeholder, onSelect, type = 'movie' }) {
 						backgroundColor: 'white',
 						boxShadow: 3,
 						zIndex: 10,
-						maxHeight: '300px', // Allow vertical scrolling for long lists
+						maxHeight: '300px',
 						overflowY: 'auto',
 						borderRadius: '4px',
-						minWidth: '100%', // Ensure it matches the search bar width
+						minWidth: '100%',
 					}}
 				>
 					{options.map((option) => (

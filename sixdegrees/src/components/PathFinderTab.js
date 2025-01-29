@@ -9,6 +9,7 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 	const [excludedPersons, setExcludedPersons] = useState([]);
 	const [currentExcludeValue, setCurrentExcludeValue] = useState('');
 	const [results, setResults] = useState([]);
+	const [clearSignal, setClearSignal] = useState(0); // Used to reset inputs
 
 	const handleSearchValueChange = (key, id, name) => {
 		setSearchValues({ ...searchValues, [key]: { id, name } });
@@ -29,7 +30,8 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 		setSearchValues({});
 		setExcludedPersons([]);
 		setResults([]);
-		setCurrentExcludeValue(''); // Clear input
+		setCurrentExcludeValue('');
+		setClearSignal((prev) => prev + 1); // Increment to trigger reset in SearchBar
 	};
 
 	const fetchPath = async () => {
@@ -73,6 +75,7 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 						type={type}
 						value={searchValues[key]?.name || ''}
 						onSelect={(id, name) => handleSearchValueChange(key, id, name)}
+						clearSignal={clearSignal} // Pass clearSignal for reset
 					/>
 				))}
 				<SearchBar
@@ -81,8 +84,9 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 					value={currentExcludeValue}
 					onSelect={(id, name) => {
 						handleExcludePerson(id, name);
-						setCurrentExcludeValue(name || ''); // Update input value after selection
+						setCurrentExcludeValue(name || '');
 					}}
+					clearSignal={clearSignal} // Pass clearSignal for reset
 				/>
 				<Button variant="contained" sx={{ bgcolor: '#002b80' }} onClick={fetchPath}>
 					Search
