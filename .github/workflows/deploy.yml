@@ -1,0 +1,24 @@
+name: Deploy to Unraid
+
+on:
+  push:
+    branches: [ main ]  # Triggers when you push to main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to Unraid server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.UNRAID_HOST }}
+        username: ${{ secrets.UNRAID_USER }}
+        key: ${{ secrets.UNRAID_SSH_KEY }}
+        script: |
+          cd /mnt/user/appdata/nextjs-site
+          git pull origin main
+          docker restart nextjs-site
