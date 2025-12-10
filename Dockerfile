@@ -14,14 +14,17 @@ FROM node:18-alpine AS production
 WORKDIR /app
 
 # Install backend dependencies
-COPY backend/package*.json ./
-RUN npm ci --only=production
+COPY backend/package*.json ./backend/
+RUN cd backend && npm ci --only=production
 
 # Copy backend source
-COPY backend/ ./
+COPY backend/ ./backend/
 
 # Copy built frontend from previous stage
-COPY --from=frontend-build /app/frontend/build ./build
+COPY --from=frontend-build /app/frontend/build ./sixdegrees/build
+
+# Change working directory to backend for runtime
+WORKDIR /app/backend
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
