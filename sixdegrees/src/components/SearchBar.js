@@ -24,20 +24,28 @@ function SearchBar({
 	// Debounced API request
 	const debouncedFetch = useRef(
 		debounce(async (value) => {
-			if (value.length > 2) {
+			if (value.length > 0) {
 				setLoading(true);
 				try {
-					const endpoint =
-						type === 'person' ? '/api/persons/search' : '/api/movies/search';
+					let endpoint;
+					if (type === 'person') {
+						endpoint = '/api/persons/search';
+					} else if (type === 'genre') {
+						endpoint = '/api/movies/genres/search';
+					} else {
+						endpoint = '/api/movies/search';
+					}
+
 					const response = await axios.get(endpoint, { params: { query: value } });
 
 					setOptions(
 						response.data.map((item) => ({
 							id: item.id,
-							name:
-								type === 'person'
-									? item.name
-									: `${item.title} (${item.year || 'Unknown'})`,
+							name: type === 'person'
+								? item.name
+								: type === 'genre'
+								? item.name  // genres already have name field
+								: `${item.title} (${item.year || 'Unknown'})`,
 						}))
 					);
 				} catch (error) {
@@ -82,6 +90,7 @@ function SearchBar({
 		onSelect(option.id, option.name);
 		setOptions([]);
 	};
+
 
 	return (
 		<Box

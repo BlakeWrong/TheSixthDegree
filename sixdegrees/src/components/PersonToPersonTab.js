@@ -8,7 +8,7 @@ function PersonToPersonTab() {
 			fetchEndpoint="/api/movies/person-to-person"
 			searchBarConfig={[
 				{ key: 'startId', placeholder: 'Start Person', type: 'person' },
-				{ key: 'endId', placeholder: 'End Person', type: 'person' },
+				{ key: 'endIds', placeholder: 'Target Person', type: 'person', multiTarget: true },
 			]}
 		/>
 	);

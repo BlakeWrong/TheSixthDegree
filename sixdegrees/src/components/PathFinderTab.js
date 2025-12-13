@@ -1,18 +1,40 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Button, Typography, Box } from '@mui/material';
+import { Button, Typography, Box, Chip, Stack } from '@mui/material';
 import SearchBar from './SearchBar';
 import ResultsTable from './ResultsTable';
 
 function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 	const [searchValues, setSearchValues] = useState({});
+	const [targetValues, setTargetValues] = useState({}); // For multi-target fields
 	const [excludedPersons, setExcludedPersons] = useState([]);
+	const [currentTargetValues, setCurrentTargetValues] = useState({}); // Current input values for multi-target
 	const [currentExcludeValue, setCurrentExcludeValue] = useState('');
 	const [results, setResults] = useState([]);
 	const [clearSignal, setClearSignal] = useState(0); // Used to reset inputs
 
 	const handleSearchValueChange = (key, id, name) => {
 		setSearchValues({ ...searchValues, [key]: { id, name } });
+	};
+
+	const handleAddTarget = (key, id, name) => {
+		if (id && !(targetValues[key] && targetValues[key].some((item) => item.id === id))) {
+			const currentTargets = targetValues[key] || [];
+			setTargetValues({
+				...targetValues,
+				[key]: [...currentTargets, { id, name }]
+			});
+			setCurrentTargetValues({ ...currentTargetValues, [key]: '' });
+		}
+	};
+
+	const handleRemoveTarget = (key, id) => {
+		if (targetValues[key]) {
+			setTargetValues({
+				...targetValues,
+				[key]: targetValues[key].filter((item) => item.id !== id)
+			});
+		}
 	};
 
 	const handleExcludePerson = (id, name) => {
@@ -28,6 +50,8 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 
 	const clearForm = () => {
 		setSearchValues({});
+		setTargetValues({});
+		setCurrentTargetValues({});
 		setExcludedPersons([]);
 		setResults([]);
 		setCurrentExcludeValue('');
@@ -35,20 +59,57 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 	};
 
 	const fetchPath = async () => {
-		if (Object.values(searchValues).some((value) => !value.id)) {
+		// Check if all single-target fields are filled
+		const singleTargetFields = searchBarConfig.filter(config => !config.multiTarget);
+		const multiTargetFields = searchBarConfig.filter(config => config.multiTarget);
+
+		if (singleTargetFields.some(config => !searchValues[config.key]?.id)) {
 			alert('Please fill out all required search fields.');
 			return;
 		}
 
+		// Check if multi-target fields have at least one target (excluding optional fields)
+		const requiredMultiTargetFields = multiTargetFields.filter(config => !config.optional);
+		if (requiredMultiTargetFields.some(config => !(targetValues[config.key] && targetValues[config.key].length > 0))) {
+			alert('Please add at least one target for required multi-target fields.');
+			return;
+		}
+
+		// Special validation for bidirectional tabs: prevent both fields from being multi-selected
+		if (multiTargetFields.length > 1) {
+			const activeMultiFields = multiTargetFields.filter(config =>
+				targetValues[config.key] && targetValues[config.key].length > 1
+			);
+			if (activeMultiFields.length > 1) {
+				alert('Please select multiple items for only one field at a time to avoid complex queries.');
+				return;
+			}
+		}
+
 		try {
-			const response = await axios.get(fetchEndpoint, {
-				params: {
-					...Object.fromEntries(
-						Object.entries(searchValues).map(([key, value]) => [key, value.id])
-					),
-					excludedPersons: excludedPersons.map((person) => person.id).join(','),
-				},
+			const params = {
+				// Single target fields
+				...Object.fromEntries(
+					Object.entries(searchValues).map(([key, value]) => [key, value.id])
+				),
+				excludedPersons: excludedPersons.map((person) => person.id).join(','),
+			};
+
+			// Multi-target fields
+			Object.entries(targetValues).forEach(([key, targets]) => {
+				if (targets && targets.length > 0) {
+					if (targets.length === 1) {
+						// Use single target parameter for backward compatibility
+						const singleKey = key.replace('Ids', 'Id'); // startIds -> startId, endIds -> endId
+						params[singleKey] = targets[0].id;
+					} else {
+						// Use multi-target parameter
+						params[key] = targets.map(target => target.id).join(',');
+					}
+				}
 			});
+
+			const response = await axios.get(fetchEndpoint, { params });
 			setResults(response.data);
 		} catch (error) {
 			console.error(`[ERROR] Failed to fetch path from ${fetchEndpoint}:`, error);
@@ -68,14 +129,23 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 					mb: 3,
 				}}
 			>
-				{searchBarConfig.map(({ key, placeholder, type }) => (
+				{searchBarConfig.map(({ key, placeholder, type, multiTarget }) => (
 					<SearchBar
 						key={key}
-						placeholder={placeholder}
+						placeholder={multiTarget ? `Add ${placeholder}` : placeholder}
 						type={type}
-						value={searchValues[key]?.name || ''}
-						onSelect={(id, name) => handleSearchValueChange(key, id, name)}
-						clearSignal={clearSignal} // Pass clearSignal for reset
+						value={multiTarget
+							? (currentTargetValues[key] || '')
+							: (searchValues[key]?.name || '')
+						}
+						onSelect={(id, name) => {
+							if (multiTarget) {
+								handleAddTarget(key, id, name);
+							} else {
+								handleSearchValueChange(key, id, name);
+							}
+						}}
+						clearSignal={clearSignal}
 					/>
 				))}
 				<SearchBar
@@ -86,7 +156,7 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 						handleExcludePerson(id, name);
 						setCurrentExcludeValue(name || '');
 					}}
-					clearSignal={clearSignal} // Pass clearSignal for reset
+					clearSignal={clearSignal}
 				/>
 				<Button variant="contained" sx={{ bgcolor: '#002b80' }} onClick={fetchPath}>
 					Search
@@ -95,6 +165,30 @@ function PathFinderTab({ title, searchBarConfig, fetchEndpoint }) {
 					Clear
 				</Button>
 			</Box>
+
+			{/* Multi-target chips display */}
+			{searchBarConfig.filter(config => config.multiTarget).map(({ key, placeholder }) =>
+				targetValues[key] && targetValues[key].length > 0 && (
+					<Box key={key} sx={{ mb: 2 }}>
+						<Typography variant="subtitle2" sx={{ mb: 1 }}>
+							{placeholder}s:
+						</Typography>
+						<Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+							{targetValues[key].map((item) => (
+								<Chip
+									key={item.id}
+									label={item.name}
+									onDelete={() => handleRemoveTarget(key, item.id)}
+									color="primary"
+									variant="outlined"
+									sx={{ mb: 1 }}
+								/>
+							))}
+						</Stack>
+					</Box>
+				)
+			)}
+
 			{excludedPersons.length > 0 && (
 				<Box sx={{ mb: 3 }}>
 					<Typography variant="subtitle1">Excluded Persons:</Typography>

@@ -14,6 +14,8 @@ import { useTheme } from '@mui/material/styles';
 import MovieToMovieTab from './MovieToMovieTab';
 import MovieToPersonTab from './MovieToPersonTab';
 import PersonToPersonTab from './PersonToPersonTab';
+import MovieToGenreTab from './MovieToGenreTab';
+import PersonToGenreTab from './PersonToGenreTab';
 import MenuIcon from '@mui/icons-material/Menu';
 
 function TabsContainer() {
@@ -31,6 +33,10 @@ function TabsContainer() {
 				return <MovieToPersonTab />;
 			case 'person-to-person':
 				return <PersonToPersonTab />;
+			case 'movie-to-genre':
+				return <MovieToGenreTab />;
+			case 'person-to-genre':
+				return <PersonToGenreTab />;
 			default:
 				return null;
 		}
@@ -103,7 +109,7 @@ function TabsContainer() {
 							onClose={() => handleMenuClose(activeTab)}
 							PaperProps={{
 								style: {
-									width: '200px',
+									width: '220px',
 								},
 							}}
 						>
@@ -125,6 +131,18 @@ function TabsContainer() {
 							>
 								Person to Person
 							</MenuItem>
+							<MenuItem
+								onClick={() => handleMenuClose('movie-to-genre')}
+								selected={activeTab === 'movie-to-genre'}
+							>
+								Movie to Genre
+							</MenuItem>
+							<MenuItem
+								onClick={() => handleMenuClose('person-to-genre')}
+								selected={activeTab === 'person-to-genre'}
+							>
+								Person to Genre
+							</MenuItem>
 						</Menu>
 					</Box>
 				) : (
@@ -133,11 +151,14 @@ function TabsContainer() {
 						onChange={handleTabChange}
 						indicatorColor="primary"
 						textColor="primary"
-						variant="fullWidth"
+						variant="scrollable"
+						scrollButtons="auto"
 					>
 						<Tab label="Movie to Movie" value="movie-to-movie" />
 						<Tab label="Movie to Person" value="movie-to-person" />
 						<Tab label="Person to Person" value="person-to-person" />
+						<Tab label="Movie to Genre" value="movie-to-genre" />
+						<Tab label="Person to Genre" value="person-to-genre" />
 					</Tabs>
 				)}
 

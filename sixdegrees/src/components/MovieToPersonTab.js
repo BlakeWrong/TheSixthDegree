@@ -7,8 +7,8 @@ function MovieToPersonTab() {
 			title="Find Connections Between Movies and People"
 			fetchEndpoint="/api/movies/movie-to-person"
 			searchBarConfig={[
-				{ key: 'startId', placeholder: 'Movie', type: 'movie' },
-				{ key: 'personId', placeholder: 'Person', type: 'person' },
+				{ key: 'startIds', placeholder: 'Movie', type: 'movie', multiTarget: true },
+				{ key: 'personIds', placeholder: 'Person', type: 'person', multiTarget: true },
 			]}
 		/>
 	);

@@ -117,12 +117,32 @@ router.get('/search', async (req, res) => {
 });
 
 router.get('/movie-to-movie', async (req, res) => {
-	const { startId, endId, excludedPersons } = req.query;
+	const { startId, endId, endIds, excludedPersons } = req.query;
 
-	if (!startId || !endId) {
+	// Check for valid start ID first
+	if (!startId) {
 		return res
 			.status(400)
-			.json({ error: 'Both start and end movie IDs are required' });
+			.json({ error: 'Start movie ID is required' });
+	}
+
+	// Support both single target (endId) and multiple targets (endIds)
+	let targetIds = [];
+	if (endIds && endIds.trim() !== '') {
+		// Multiple target mode
+		targetIds = endIds.split(',').map(Number);
+		if (targetIds.length === 0) {
+			return res
+				.status(400)
+				.json({ error: 'At least one target movie ID is required' });
+		}
+	} else if (endId) {
+		// Single target mode (backward compatibility)
+		targetIds = [parseInt(endId)];
+	} else {
+		return res
+			.status(400)
+			.json({ error: 'Either endId or endIds parameter is required' });
 	}
 
 	// Parse excluded persons
@@ -136,20 +156,22 @@ router.get('/movie-to-movie', async (req, res) => {
 
 	const cypherQuery = `
         MATCH path = allShortestPaths(
-			(m1:Movie {id: $startId})-[:WORKED_WITH*]-(m2:Movie {id: $endId})
+			(m1:Movie {id: $startId})-[:WORKED_WITH*]-(m2:Movie)
 		)
-		WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
+		WHERE m2.id IN $targetIds
+		AND all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
 		${personCondition}
 		WITH path,
 			nodes(path) AS path_nodes,
 			relationships(path) AS path_rels,
+			length(path) as path_length,
 			REDUCE(total_popularity = 0, n IN nodes(path) |
 				CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
 			) AS total_path_popularity
 		RETURN
 			[
 				n IN path_nodes |
-				CASE 
+				CASE
 					WHEN "Movie" IN labels(n) THEN {
 						type: "Movie",
 						id: n.id,
@@ -174,8 +196,9 @@ router.get('/movie-to-movie', async (req, res) => {
 					role: r.role
 				}
 			] AS relationships,
+			path_length,
 			total_path_popularity
-		ORDER BY total_path_popularity DESC
+		ORDER BY path_length ASC, total_path_popularity DESC
 		LIMIT 15;
 
     `;
@@ -184,7 +207,7 @@ router.get('/movie-to-movie', async (req, res) => {
 		const session = driver.session();
 		const result = await session.run(cypherQuery, {
 			startId: parseInt(startId),
-			endId: parseInt(endId),
+			targetIds: targetIds,
 			excludedIds,
 		});
 
@@ -192,6 +215,7 @@ router.get('/movie-to-movie', async (req, res) => {
 		const paths = result.records.map((record) => ({
 			path_details: record.get('path_details'),
 			relationships: record.get('relationships'),
+			path_length: record.get('path_length'),
 			total_path_popularity: record.get('total_path_popularity'),
 		}));
 
@@ -204,12 +228,46 @@ router.get('/movie-to-movie', async (req, res) => {
 
 // Movie-to-Person
 router.get('/movie-to-person', async (req, res) => {
-	const { startId, personId, excludedPersons } = req.query;
+	const { startId, startIds, personId, personIds, excludedPersons } = req.query;
 
-	if (!startId || !personId) {
+	// Support both directions: single/multi movies to single/multi persons
+	let movieIds = [];
+	let personTargetIds = [];
+
+	// Handle movie IDs (start parameter)
+	if (startIds && startIds.trim() !== '') {
+		// Multiple movies mode
+		movieIds = startIds.split(',').map(Number);
+		if (movieIds.length === 0) {
+			return res
+				.status(400)
+				.json({ error: 'At least one start movie ID is required' });
+		}
+	} else if (startId) {
+		// Single movie mode (backward compatibility)
+		movieIds = [parseInt(startId)];
+	} else {
 		return res
 			.status(400)
-			.json({ error: 'Both movie and person IDs are required' });
+			.json({ error: 'Either startId or startIds parameter is required' });
+	}
+
+	// Handle person IDs (target parameter)
+	if (personIds && personIds.trim() !== '') {
+		// Multiple target mode
+		personTargetIds = personIds.split(',').map(Number);
+		if (personTargetIds.length === 0) {
+			return res
+				.status(400)
+				.json({ error: 'At least one target person ID is required' });
+		}
+	} else if (personId) {
+		// Single target mode (backward compatibility)
+		personTargetIds = [parseInt(personId)];
+	} else {
+		return res
+			.status(400)
+			.json({ error: 'Either personId or personIds parameter is required' });
 	}
 
 	// Parse excludedPersons into an array if provided
@@ -223,20 +281,22 @@ router.get('/movie-to-person', async (req, res) => {
 
 	const cypherQuery = `
         MATCH path = allShortestPaths(
-            (m:Movie {id: $startId})-[:WORKED_WITH*]-(p:Person {id: $personId})
+            (m:Movie)-[:WORKED_WITH*]-(p:Person)
         )
-        WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
+        WHERE m.id IN $movieIds AND p.id IN $personTargetIds
+        AND all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
         ${personExclusionCondition}
         WITH path,
             nodes(path) AS path_nodes,
             relationships(path) AS path_rels,
+            length(path) as path_length,
             REDUCE(total_popularity = 0, n IN nodes(path) |
                 CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
             ) AS total_path_popularity
         RETURN
             [
                 n IN path_nodes |
-                CASE 
+                CASE
                     WHEN "Movie" IN labels(n) THEN {
                         type: "Movie",
                         id: n.id,
@@ -261,22 +321,24 @@ router.get('/movie-to-person', async (req, res) => {
                     role: r.role
                 }
             ] AS relationships,
+            path_length,
             total_path_popularity
-        ORDER BY total_path_popularity DESC
+        ORDER BY path_length ASC, total_path_popularity DESC
         LIMIT 15;
     `;
 
 	try {
 		const session = driver.session();
 		const result = await session.run(cypherQuery, {
-			startId: parseInt(startId),
-			personId: parseInt(personId),
+			movieIds: movieIds,
+			personTargetIds: personTargetIds,
 			excludedIds,
 		});
 
 		const paths = result.records.map((record) => ({
 			path_details: record.get('path_details'),
 			relationships: record.get('relationships'),
+			path_length: record.get('path_length'),
 			total_path_popularity: record.get('total_path_popularity'),
 		}));
 
@@ -289,12 +351,32 @@ router.get('/movie-to-person', async (req, res) => {
 
 // Person-to-Person
 router.get('/person-to-person', async (req, res) => {
-	const { startId, endId, excludedPersons } = req.query;
+	const { startId, endId, endIds, excludedPersons } = req.query;
 
-	if (!startId || !endId) {
+	// Check for valid start ID first
+	if (!startId) {
 		return res
 			.status(400)
-			.json({ error: 'Both start and end person IDs are required' });
+			.json({ error: 'Start person ID is required' });
+	}
+
+	// Support both single target (endId) and multiple targets (endIds)
+	let targetIds = [];
+	if (endIds && endIds.trim() !== '') {
+		// Multiple target mode
+		targetIds = endIds.split(',').map(Number);
+		if (targetIds.length === 0) {
+			return res
+				.status(400)
+				.json({ error: 'At least one target person ID is required' });
+		}
+	} else if (endId) {
+		// Single target mode (backward compatibility)
+		targetIds = [parseInt(endId)];
+	} else {
+		return res
+			.status(400)
+			.json({ error: 'Either endId or endIds parameter is required' });
 	}
 
 	const excludedIds = excludedPersons
@@ -307,20 +389,22 @@ router.get('/person-to-person', async (req, res) => {
 
 	const cypherQuery = `
         MATCH path = allShortestPaths(
-            (p1:Person {id: $startId})-[:WORKED_WITH*]-(p2:Person {id: $endId})
+            (p1:Person {id: $startId})-[:WORKED_WITH*]-(p2:Person)
         )
-        WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
+        WHERE p2.id IN $targetIds
+        AND all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
         ${personExclusionCondition}
         WITH path,
             nodes(path) AS path_nodes,
             relationships(path) AS path_rels,
+            length(path) as path_length,
             REDUCE(total_popularity = 0, n IN nodes(path) |
                 CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
             ) AS total_path_popularity
         RETURN
             [
                 n IN path_nodes |
-                CASE 
+                CASE
                     WHEN "Movie" IN labels(n) THEN {
                         type: "Movie",
                         id: n.id,
@@ -345,8 +429,9 @@ router.get('/person-to-person', async (req, res) => {
                     role: r.role
                 }
             ] AS relationships,
+            path_length,
             total_path_popularity
-        ORDER BY total_path_popularity DESC
+        ORDER BY path_length ASC, total_path_popularity DESC
         LIMIT 15;
     `;
 
@@ -354,13 +439,14 @@ router.get('/person-to-person', async (req, res) => {
 		const session = driver.session();
 		const result = await session.run(cypherQuery, {
 			startId: parseInt(startId),
-			endId: parseInt(endId),
+			targetIds: targetIds,
 			excludedIds,
 		});
 
 		const paths = result.records.map((record) => ({
 			path_details: record.get('path_details'),
 			relationships: record.get('relationships'),
+			path_length: record.get('path_length'),
 			total_path_popularity: record.get('total_path_popularity'),
 		}));
 
@@ -371,6 +457,288 @@ router.get('/person-to-person', async (req, res) => {
 	}
 });
 
-module.exports = router;
+// Movie-to-Genre
+router.get('/movie-to-genre', async (req, res) => {
+	const { startId, startIds, includeGenres, excludeGenres, excludedPersons } = req.query;
+
+	// Support both single and multiple movies
+	let movieIds = [];
+	if (startIds && startIds.trim() !== '') {
+		movieIds = startIds.split(',').map(Number);
+		if (movieIds.length === 0) {
+			return res.status(400).json({ error: 'At least one start movie ID is required' });
+		}
+	} else if (startId) {
+		movieIds = [parseInt(startId)];
+	} else {
+		return res.status(400).json({ error: 'Either startId or startIds parameter is required' });
+	}
+
+	// Parse included and excluded genres
+	const requiredGenres = includeGenres ? includeGenres.split(',') : [];
+	const excludedGenresList = excludeGenres ? excludeGenres.split(',') : [];
+
+	if (requiredGenres.length === 0) {
+		return res.status(400).json({ error: 'At least one genre to include is required' });
+	}
+
+	const excludedIds = excludedPersons ? excludedPersons.split(',').map(Number) : [];
+
+	const personExclusionCondition = excludedIds.length
+		? `AND all(n IN nodes(path) WHERE NOT (n:Person AND n.id IN $excludedIds))`
+		: '';
+
+	// Build genre filter conditions
+	const genreIncludeCondition = requiredGenres.map((_, i) => `$includeGenre${i} IN target.genres`).join(' AND ');
+	const genreExcludeCondition = excludedGenresList.length > 0
+		? ' AND ' + excludedGenresList.map((_, i) => `NOT ($excludeGenre${i} IN target.genres)`).join(' AND ')
+		: '';
+
+	const cypherQuery = `
+		MATCH (start:Movie)
+		WHERE start.id IN $movieIds
+
+		// Find target movies with required genres (limited depth)
+		MATCH (start)-[:WORKED_WITH*1..3]-(target:Movie)
+		WHERE ${genreIncludeCondition}${genreExcludeCondition}
+		AND start <> target
+
+		// Get shortest path to each found target
+		WITH DISTINCT start, target
+		MATCH path = shortestPath((start)-[:WORKED_WITH*1..3]-(target))
+		WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
+		${personExclusionCondition}
+
+		WITH DISTINCT target,
+			path,
+			nodes(path) AS path_nodes,
+			relationships(path) AS path_rels,
+			length(path) as path_length,
+			REDUCE(total_popularity = 0, n IN nodes(path) |
+				CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
+			) AS total_path_popularity
+		RETURN
+			[
+				n IN path_nodes |
+				CASE
+					WHEN "Movie" IN labels(n) THEN {
+						type: "Movie",
+						id: n.id,
+						title: n.title,
+						year: n.year,
+						poster_url: n.poster_url,
+						genres: n.genres
+					}
+					WHEN "Person" IN labels(n) THEN {
+						type: "Person",
+						id: n.id,
+						name: n.name,
+						profile_url: n.profile_url,
+						popularity: n.popularity
+					}
+				END
+			] AS path_details,
+			[
+				r IN path_rels |
+				{
+					start_node_id: startNode(r).id,
+					end_node_id: endNode(r).id,
+					role: r.role
+				}
+			] AS relationships,
+			path_length,
+			total_path_popularity
+		ORDER BY path_length ASC, total_path_popularity DESC
+		LIMIT 10;
+	`;
+
+	try {
+		const session = driver.session();
+		const params = {
+			movieIds: movieIds,
+			excludedIds,
+		};
+
+		// Add genre parameters
+		requiredGenres.forEach((genre, i) => {
+			params[`includeGenre${i}`] = genre;
+		});
+		excludedGenresList.forEach((genre, i) => {
+			params[`excludeGenre${i}`] = genre;
+		});
+
+		const result = await session.run(cypherQuery, params);
+
+		const paths = result.records.map((record) => ({
+			path_details: record.get('path_details'),
+			relationships: record.get('relationships'),
+			path_length: record.get('path_length'),
+			total_path_popularity: record.get('total_path_popularity'),
+		}));
+
+		res.json(paths);
+	} catch (error) {
+		console.error('[ERROR] Failed to fetch movie-to-genre path:', error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
+// Person-to-Genre
+router.get('/person-to-genre', async (req, res) => {
+	const { startId, startIds, includeGenres, excludeGenres, excludedPersons } = req.query;
+
+	// Support both single and multiple persons
+	let personIds = [];
+	if (startIds && startIds.trim() !== '') {
+		personIds = startIds.split(',').map(Number);
+		if (personIds.length === 0) {
+			return res.status(400).json({ error: 'At least one start person ID is required' });
+		}
+	} else if (startId) {
+		personIds = [parseInt(startId)];
+	} else {
+		return res.status(400).json({ error: 'Either startId or startIds parameter is required' });
+	}
+
+	// Parse included and excluded genres
+	const requiredGenres = includeGenres ? includeGenres.split(',') : [];
+	const excludedGenresList = excludeGenres ? excludeGenres.split(',') : [];
+
+	if (requiredGenres.length === 0) {
+		return res.status(400).json({ error: 'At least one genre to include is required' });
+	}
+
+	const excludedIds = excludedPersons ? excludedPersons.split(',').map(Number) : [];
+
+	const personExclusionCondition = excludedIds.length
+		? `AND all(n IN nodes(path) WHERE NOT (n:Person AND n.id IN $excludedIds))`
+		: '';
+
+	// Build genre filter conditions
+	const genreIncludeCondition = requiredGenres.map((_, i) => `$includeGenre${i} IN target.genres`).join(' AND ');
+	const genreExcludeCondition = excludedGenresList.length > 0
+		? ' AND ' + excludedGenresList.map((_, i) => `NOT ($excludeGenre${i} IN target.genres)`).join(' AND ')
+		: '';
+
+	const cypherQuery = `
+		MATCH (start:Person)
+		WHERE start.id IN $personIds
+
+		// Find target movies with required genres (limited depth)
+		MATCH (start)-[:WORKED_WITH*1..3]-(target:Movie)
+		WHERE ${genreIncludeCondition}${genreExcludeCondition}
+
+		// Get shortest path to each found target
+		WITH DISTINCT start, target
+		MATCH path = shortestPath((start)-[:WORKED_WITH*1..3]-(target))
+		WHERE all(rel IN relationships(path) WHERE rel.role IN ["Actor", "Director", "Composer", "Cinematographer", "Writer"])
+		${personExclusionCondition}
+
+		WITH path,
+			nodes(path) AS path_nodes,
+			relationships(path) AS path_rels,
+			length(path) as path_length,
+			REDUCE(total_popularity = 0, n IN nodes(path) |
+				CASE WHEN "Person" IN labels(n) THEN total_popularity + COALESCE(n.popularity, 0) ELSE total_popularity END
+			) AS total_path_popularity
+		RETURN
+			[
+				n IN path_nodes |
+				CASE
+					WHEN "Movie" IN labels(n) THEN {
+						type: "Movie",
+						id: n.id,
+						title: n.title,
+						year: n.year,
+						poster_url: n.poster_url,
+						genres: n.genres
+					}
+					WHEN "Person" IN labels(n) THEN {
+						type: "Person",
+						id: n.id,
+						name: n.name,
+						profile_url: n.profile_url,
+						popularity: n.popularity
+					}
+				END
+			] AS path_details,
+			[
+				r IN path_rels |
+				{
+					start_node_id: startNode(r).id,
+					end_node_id: endNode(r).id,
+					role: r.role
+				}
+			] AS relationships,
+			path_length,
+			total_path_popularity
+		ORDER BY path_length ASC, total_path_popularity DESC
+		LIMIT 15;
+	`;
+
+	try {
+		const session = driver.session();
+		const params = {
+			personIds: personIds,
+			excludedIds,
+		};
+
+		// Add genre parameters
+		requiredGenres.forEach((genre, i) => {
+			params[`includeGenre${i}`] = genre;
+		});
+		excludedGenresList.forEach((genre, i) => {
+			params[`excludeGenre${i}`] = genre;
+		});
+
+		const result = await session.run(cypherQuery, params);
+
+		const paths = result.records.map((record) => ({
+			path_details: record.get('path_details'),
+			relationships: record.get('relationships'),
+			path_length: record.get('path_length'),
+			total_path_popularity: record.get('total_path_popularity'),
+		}));
+
+		res.json(paths);
+	} catch (error) {
+		console.error('[ERROR] Failed to fetch person-to-genre path:', error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
+// Genre Search
+router.get('/genres/search', async (req, res) => {
+	const { query } = req.query;
+
+	if (!query || query.trim().length < 1) {
+		return res.json([]);
+	}
+
+	try {
+		const session = driver.session();
+		const cypherQuery = `
+			MATCH (m:Movie)
+			UNWIND m.genres as genre
+			WITH DISTINCT genre
+			WHERE toLower(genre) CONTAINS toLower($query)
+			RETURN genre
+			ORDER BY genre
+			LIMIT 20;
+		`;
+
+		const result = await session.run(cypherQuery, { query: query.trim() });
+
+		const genres = result.records.map(record => ({
+			id: record.get('genre'),
+			name: record.get('genre')
+		}));
+
+		res.json(genres);
+	} catch (error) {
+		console.error('[ERROR] Failed to search genres:', error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
 
 module.exports = router;

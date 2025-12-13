@@ -8,7 +8,7 @@ function MovieToMovieTab() {
 			fetchEndpoint="/api/movies/movie-to-movie"
 			searchBarConfig={[
 				{ key: 'startId', placeholder: 'Start Movie', type: 'movie' },
-				{ key: 'endId', placeholder: 'End Movie', type: 'movie' },
+				{ key: 'endIds', placeholder: 'Target Movie', type: 'movie', multiTarget: true },
 			]}
 		/>
 	);
